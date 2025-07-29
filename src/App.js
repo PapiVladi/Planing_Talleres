@@ -436,7 +436,7 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0"> {/* Adjusted gradient */}
       <CustomModal
         message={modalMessage}
         onConfirm={() => {
@@ -457,7 +457,7 @@ const App = () => {
         <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
         <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres de Viernes y Sábado.</p>
         {/* Mensaje de prueba de actualización */}
-        <p className="text-sm text-red-500 font-bold mt-2">VERSIÓN DE PRUEBA: 29/07/2025 - V4</p>
+        <p className="text-sm text-red-500 font-bold mt-2">VERSIÓN DE PRUEBA: 29/07/2025 - V5</p> {/* Updated version */}
         {userId && (
           <p className="text-xs sm:text-sm text-gray-500 mt-2">
             ID de Sesión Anónima (compartido para identificar tus aportaciones): <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-md text-xs">{userId}</span>
@@ -749,7 +749,7 @@ const App = () => {
         </section>
 
         {/* Sección de Gestión de Talleres */}
-        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full relative z-10 mt-6 sm:mt-8 lg:mt-0"> {/* Added mt-6 sm:mt-8 lg:mt-0 to control vertical spacing */}
+        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full relative z-10 mt-6 sm:mt-8 lg:mt-0">
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
           <div className="space-y-4">
             <div>
