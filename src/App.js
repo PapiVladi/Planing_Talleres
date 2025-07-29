@@ -56,9 +56,12 @@ const auth = getAuth(app);
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Esta regla permite a CUALQUIER usuario (incluso anónimo) leer y escribir en la colección de clases
-    // de esta aplicación. Esto es lo que permite la colaboración sin login tradicional.
+    // Reglas para las clases
     match /artifacts/planificador-colaborativo-taller/public/data/classes/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+    // NUEVAS REGLAS para los talleres
+    match /artifacts/planificador-colaborativo-taller/public/data/workshops/{document=**} {
       allow read, write: if request.auth != null;
     }
   }
@@ -106,8 +109,10 @@ const App = () => {
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [classes, setClasses] = useState([]);
-  const [selectedWorkshop, setSelectedWorkshop] = useState('Electrónica');
-  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: 'Electrónica' });
+  const [workshops, setWorkshops] = useState([]); // New state for workshops
+  const [newWorkshopName, setNewWorkshopName] = useState(''); // New state for new workshop input
+  const [selectedWorkshop, setSelectedWorkshop] = useState(''); // Default will be set after fetching workshops
+  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: '' }); // workshopType will be set dynamically
   const [editingClass, setEditingClass] = useState(null);
   const [modalMessage, setModalMessage] = useState('');
   const [modalConfirmAction, setModalConfirmAction] = useState(null);
@@ -137,9 +142,40 @@ const App = () => {
     return () => unsubscribeAuth();
   }, []);
 
+  // Fetch workshops when auth is ready
+  useEffect(() => {
+    if (isAuthReady && userId) {
+      const workshopsCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/workshops`);
+      const unsubscribe = onSnapshot(workshopsCollectionRef, (snapshot) => {
+        const fetchedWorkshops = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setWorkshops(fetchedWorkshops);
+        // Set default selected workshop if none is selected or if the current one is deleted
+        if (fetchedWorkshops.length > 0 && !fetchedWorkshops.some(w => w.name === selectedWorkshop)) {
+          setSelectedWorkshop(fetchedWorkshops[0].name);
+        } else if (fetchedWorkshops.length === 0) {
+          setSelectedWorkshop(''); // No workshops available
+        }
+      }, (error) => {
+        console.error("Error fetching workshops:", error);
+        setModalMessage("Error al cargar los talleres. Intenta de nuevo.");
+        setModalConfirmAction(() => () => setModalMessage(''));
+      });
+      return () => unsubscribe();
+    }
+  }, [isAuthReady, userId]); // Depend on isAuthReady and userId
+
+  // Update newClass.workshopType when selectedWorkshop changes
+  useEffect(() => {
+    setNewClass(prev => ({ ...prev, workshopType: selectedWorkshop }));
+  }, [selectedWorkshop]);
+
+
   // Fetch classes when auth is ready, userId is available, and selectedWorkshop changes
   useEffect(() => {
-    if (isAuthReady && userId && selectedWorkshop) {
+    if (isAuthReady && userId && selectedWorkshop) { // Only fetch if a workshop is selected
       const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
       const q = query(sharedClassesCollectionRef, where("workshopType", "==", selectedWorkshop));
 
@@ -162,6 +198,8 @@ const App = () => {
       });
 
       return () => unsubscribe();
+    } else if (isAuthReady && userId && !selectedWorkshop) {
+      setClasses([]); // Clear classes if no workshop is selected
     }
   }, [isAuthReady, userId, selectedWorkshop]);
 
@@ -177,6 +215,11 @@ const App = () => {
   const addOrUpdateClass = async () => {
     if (!userId) {
       setModalMessage("No se pudo conectar con la base de datos. Recarga la página.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+      return;
+    }
+    if (!selectedWorkshop) {
+      setModalMessage("Por favor, selecciona o añade un taller primero.");
       setModalConfirmAction(() => () => setModalMessage(''));
       return;
     }
@@ -209,7 +252,7 @@ const App = () => {
           time: editingClass.time,
           dayOfWeek: editingClass.dayOfWeek,
           status: editingClass.status,
-          workshopType: editingClass.workshopType,
+          workshopType: editingClass.workshopType, // Keep original workshopType for editing
         });
         setEditingClass(null);
         setModalMessage("Clase actualizada con éxito.");
@@ -222,7 +265,7 @@ const App = () => {
           time: newClass.time,
           dayOfWeek: newClass.dayOfWeek,
           status: newClass.status,
-          workshopType: selectedWorkshop,
+          workshopType: selectedWorkshop, // Use currently selected workshop
           createdAt: new Date(),
           createdBy: userId,
         });
@@ -288,6 +331,64 @@ const App = () => {
     }
   };
 
+  // New functions for workshop management
+  const addWorkshop = async () => {
+    if (!userId) {
+      setModalMessage("No se pudo conectar con la base de datos. Recarga la página.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+      return;
+    }
+    if (!newWorkshopName.trim()) {
+      setModalMessage("El nombre del taller no puede estar vacío.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+      return;
+    }
+    if (workshops.some(w => w.name.toLowerCase() === newWorkshopName.trim().toLowerCase())) {
+      setModalMessage("Este taller ya existe.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, `artifacts/${APP_IDENTIFIER}/public/data/workshops`), {
+        name: newWorkshopName.trim(),
+        createdAt: new Date(),
+        createdBy: userId,
+      });
+      setNewWorkshopName('');
+      setModalMessage("Taller añadido con éxito.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+    } catch (e) {
+      console.error("Error adding workshop: ", e);
+      setModalMessage("Error al añadir el taller. Intenta de nuevo.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+    }
+  };
+
+  const deleteWorkshop = (id, name) => {
+    setModalMessage(`¿Estás seguro de que quieres eliminar el taller "${name}"? Esto no eliminará las clases asociadas.`);
+    setShowModalCancel(true);
+    setModalConfirmAction(() => async () => {
+      try {
+        if (!userId) {
+          setModalMessage("No se pudo conectar con la base de datos. Recarga la página.");
+          setModalConfirmAction(() => () => setModalMessage(''));
+          return;
+        }
+        await deleteDoc(doc(db, `artifacts/${APP_IDENTIFIER}/public/data/workshops`, id));
+        setModalMessage("Taller eliminado con éxito.");
+        setModalConfirmAction(() => () => setModalMessage(''));
+        setShowModalCancel(false);
+      } catch (e) {
+        console.error("Error deleting workshop: ", e);
+        setModalMessage("Error al eliminar el taller. Intenta de nuevo.");
+        setModalConfirmAction(() => () => setModalMessage(''));
+        setShowModalCancel(false);
+      }
+    });
+  };
+
+
   // --- Calculations for Graphs ---
   const getProgressData = useCallback(() => {
     const totalClasses = classes.length;
@@ -335,7 +436,7 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0"> {/* Added relative z-0 */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0">
       <CustomModal
         message={modalMessage}
         onConfirm={() => {
@@ -352,7 +453,7 @@ const App = () => {
         showCancel={showModalCancel}
       />
 
-      <header className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10"> {/* Added relative z-10 */}
+      <header className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
         <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres de Viernes y Sábado.</p>
         {userId && (
@@ -365,13 +466,14 @@ const App = () => {
         )}
       </header>
 
-      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0"> {/* Added relative z-0 */}
+      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0">
         {/* Formulario de Añadir/Editar Clase */}
-        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first relative z-20"> {/* Added relative z-20 */}
+        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first relative z-20">
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
-            {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop}`}
+            {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop || 'un Taller'}`}
           </h2>
           <div className="space-y-3 sm:space-y-4">
+            {/* Workshop Selector in the form for new classes */}
             {!editingClass && (
               <div>
                 <label htmlFor="workshopType" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Taller</label>
@@ -382,8 +484,10 @@ const App = () => {
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
-                  <option value="Electrónica">Electrónica</option>
-                  <option value="Teatro">Teatro</option>
+                  {workshops.length === 0 && <option value="">Añade un taller...</option>}
+                  {workshops.map(workshop => (
+                    <option key={workshop.id} value={workshop.name}>{workshop.name}</option>
+                  ))}
                 </select>
               </div>
             )}
@@ -486,7 +590,7 @@ const App = () => {
               {editingClass && (
                 <button
                   onClick={cancelEditing}
-                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg"
                 >
                   Cancelar Edición
                 </button>
@@ -496,41 +600,38 @@ const App = () => {
         </section>
 
         {/* Lista de Clases y Gráficos de Avance */}
-        <section className="space-y-6 sm:space-y-8 lg:col-span-2 w-full order-last relative z-10"> {/* Added relative z-10 */}
+        <section className="space-y-6 sm:space-y-8 lg:col-span-2 w-full order-last relative z-10">
           {/* Workshop Selector */}
-          <div className="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-4">
-            <button
-              onClick={() => setSelectedWorkshop('Electrónica')}
-              className={`px-4 py-2 rounded-md font-semibold text-sm sm:text-base transition-all duration-200 ${
-                selectedWorkshop === 'Electrónica'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              Taller de Electrónica
-            </button>
-            <button
-              onClick={() => setSelectedWorkshop('Teatro')}
-              className={`px-4 py-2 rounded-md font-semibold text-sm sm:text-base transition-all duration-200 ${
-                selectedWorkshop === 'Teatro'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              Taller de Teatro
-            </button>
+          <div className="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 flex flex-wrap justify-center gap-2 sm:gap-4"> {/* Changed to flex-wrap for buttons */}
+            {workshops.length === 0 ? (
+              <p className="text-center text-gray-500 text-sm sm:text-base">Añade talleres en la sección de "Gestión de Talleres".</p>
+            ) : (
+              workshops.map(workshop => (
+                <button
+                  key={workshop.id}
+                  onClick={() => setSelectedWorkshop(workshop.name)}
+                  className={`px-4 py-2 rounded-md font-semibold text-sm sm:text-base transition-all duration-200 ${
+                    selectedWorkshop === workshop.name
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {workshop.name}
+                </button>
+              ))
+            )}
           </div>
 
           {/* Sección de Gráficos de Avance */}
           <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop})</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop || 'Ningún Taller Seleccionado'})</h2>
             <div className="text-center mb-3 sm:mb-4">
               <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{progressPercentage}% Completado</p>
               <p className="text-base sm:text-lg text-gray-700 mt-1 sm:mt-2">{getProgressMessage()}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Gráfico de Estado General */}
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0"> {/* Added relative z-0 */}
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Estado de Clases</h3>
                 <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'pie'}>
                   <PieChart>
@@ -555,7 +656,7 @@ const App = () => {
               </div>
 
               {/* Gráfico de Progreso por Día */}
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0"> {/* Added relative z-0 */}
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Clases por Día</h3>
                 <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'bar'}>
                   <BarChart
@@ -577,7 +678,7 @@ const App = () => {
 
           {/* Lista de Clases */}
           <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Mis Clases de {selectedWorkshop}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Mis Clases de {selectedWorkshop || 'Ningún Taller Seleccionado'}</h2>
             {classes.length === 0 ? (
               <p className="text-center text-gray-500 py-6 sm:py-8 text-base sm:text-lg">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
             ) : (
@@ -643,6 +744,54 @@ const App = () => {
                 ))}
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Sección de Gestión de Talleres */}
+        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full relative z-10">
+          <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="newWorkshopName" className="block text-sm font-medium text-gray-700 mb-1">Añadir Nuevo Taller</label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  id="newWorkshopName"
+                  name="newWorkshopName"
+                  value={newWorkshopName}
+                  onChange={(e) => setNewWorkshopName(e.target.value)}
+                  placeholder="Ej. Taller de Música"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
+                />
+                <button
+                  onClick={addWorkshop}
+                  className="bg-green-600 text-white font-bold py-2.5 px-4 rounded-md hover:bg-green-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 text-base sm:text-lg"
+                >
+                  Añadir Taller
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Talleres Existentes</h3>
+              {workshops.length === 0 ? (
+                <p className="text-gray-500 italic text-sm sm:text-base">No hay talleres añadidos aún.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {workshops.map(workshop => (
+                    <li key={workshop.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-md shadow-sm border border-gray-200">
+                      <span className="text-base text-gray-800">{workshop.name}</span>
+                      <button
+                        onClick={() => deleteWorkshop(workshop.id, workshop.name)}
+                        className="px-3 py-1 text-xs bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                      >
+                        Eliminar
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </section>
       </main>
