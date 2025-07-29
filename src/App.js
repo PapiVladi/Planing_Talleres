@@ -530,9 +530,9 @@ const App = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Gráfico de Estado General */}
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner">
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden"> {/* Added h-64 sm:h-72 and overflow-hidden */}
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Estado de Clases</h3>
-                <ResponsiveContainer width="100%" height={250}> {/* Adjusted height for responsiveness */}
+                <ResponsiveContainer width="100%" height="100%"> {/* Changed height to 100% to fill parent */}
                   <PieChart>
                     <Pie
                       data={overallStatusData}
@@ -555,9 +555,9 @@ const App = () => {
               </div>
 
               {/* Gráfico de Progreso por Día */}
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner">
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden"> {/* Added h-64 sm:h-72 and overflow-hidden */}
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Clases por Día</h3>
-                <ResponsiveContainer width="100%" height={250}> {/* Adjusted height for responsiveness */}
+                <ResponsiveContainer width="100%" height="100%"> {/* Changed height to 100% to fill parent */}
                   <BarChart
                     data={dailyProgressData}
                     margin={{ top: 10, right: 10, left: 0, bottom: 5 }} // Adjusted margins
