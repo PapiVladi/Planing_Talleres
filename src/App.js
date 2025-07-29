@@ -11,13 +11,13 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 // 1. CONFIGURACIÓN DE FIREBASE EN ESTE CÓDIGO (src/App.js)
 //    Tus valores de Firebase ya están integrados aquí.
 const firebaseConfig = {
-  apiKey: "AIzaSyBsXrraBbCmdraNnIsP0zipNxjeHkzY0KY",           // TU CLAVE REAL
-  authDomain: "planeacion-taller.firebaseapp.com",   // TU DOMINIO REAL
-  projectId: "planeacion-taller",     // TU ID DE PROYECTO REAL
-  storageBucket: "planeacion-taller.firebasestorage.app", // TU BUCKET REAL
-  messagingSenderId: "774175269423", // TU ID REAL
-  appId: "1:774175269423:web:d38fd01c44ceabcbc29cda",             // TU ID DE APP REAL
-  measurementId: "G-NYW75KJYHZ" // Opcional, si usas Google Analytics
+  apiKey: "AIzaSyBsXrraBbCmdraNnIsP0zipNxjeHkzY0KY",
+  authDomain: "planeacion-taller.firebaseapp.com",
+  projectId: "planeacion-taller",
+  storageBucket: "planeacion-taller.firebasestorage.app",
+  messagingSenderId: "774175269423",
+  appId: "1:774175269423:web:d38fd01c44ceabcbc29cda",
+  measurementId: "G-NYW75KJYHZ"
 };
 
 // Este es el identificador ÚNICO para tu aplicación dentro de Firestore.
@@ -41,7 +41,6 @@ const auth = getAuth(app);
 //       - Ve a la pestaña "Sign-in method" (Método de inicio de sesión).
 //       - Busca "Anonymous" (Anónimo) y asegúrate de que esté **HABILITADO**.
 //       - 
-
 //    B. Configurar Reglas de Seguridad de Firestore (para que puedan leer/escribir datos)
 //       - En el menú de la izquierda de la Consola de Firebase, ve a "Build" -> "Firestore Database".
 //       - Haz clic en "Create database" (Crear base de datos) si es la primera vez.
@@ -49,8 +48,7 @@ const auth = getAuth(app);
 //         - Selecciona una ubicación para tu base de datos (la más cercana a ti o a tus usuarios).
 //         - Haz clic en "Enable" (Habilitar).
 //       - Una vez que la base de datos esté creada, haz clic en la pestaña "Rules" (Reglas).
-//       - 
-//       - **REEMPLAZA TODAS las reglas existentes con las siguientes, EXACTAMENTE así:**
+//       - //       - **REEMPLAZA TODAS las reglas existentes con las siguientes, EXACTAMENTE así:**
 //         (¡CUIDADO! Esto hace los datos públicos para CUALQUIER usuario autenticado anónimamente en TU APP)
 /*
 rules_version = '2';
@@ -66,7 +64,6 @@ service cloud.firestore {
 */
 //       - Después de pegar las reglas, haz clic en el botón "Publish" (Publicar).
 //       - 
-
 // ====================================================================================================
 // ====================================================================================================
 
@@ -107,7 +104,9 @@ const App = () => {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [classes, setClasses] = useState([]);
   const [selectedWorkshop, setSelectedWorkshop] = useState('Electrónica');
-  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: 'Electrónica' });
+  // Added 'time' to newClass state
+  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: 'Electrónica' });
+  // Added 'time' to editingClass state
   const [editingClass, setEditingClass] = useState(null);
   const [modalMessage, setModalMessage] = useState('');
   const [modalConfirmAction, setModalConfirmAction] = useState(null);
@@ -117,7 +116,6 @@ const App = () => {
   useEffect(() => {
     const authenticate = async () => {
       try {
-        // Attempt to sign in anonymously
         await signInAnonymously(auth);
       } catch (error) {
         console.error("Error during Firebase authentication:", error);
@@ -128,11 +126,11 @@ const App = () => {
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setUserId(user.uid); // Store the anonymous session ID
+        setUserId(user.uid);
       } else {
-        authenticate(); // If no user, try to authenticate anonymously
+        authenticate();
       }
-      setIsAuthReady(true); // Authentication state is ready
+      setIsAuthReady(true);
     });
 
     return () => unsubscribeAuth();
@@ -141,19 +139,22 @@ const App = () => {
   // Fetch classes when auth is ready, userId is available, and selectedWorkshop changes
   useEffect(() => {
     if (isAuthReady && userId && selectedWorkshop) {
-      // Get classes from the public/shared collection
       const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
-      // Filter classes by selected workshop type
       const q = query(sharedClassesCollectionRef, where("workshopType", "==", selectedWorkshop));
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedClasses = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
+          // Convert Firestore timestamp to YYYY-MM-DD
           date: doc.data().date ? new Date(doc.data().date.seconds * 1000).toISOString().split('T')[0] : ''
         }));
-        // Sort classes by date in memory
-        fetchedClasses.sort((a, b) => new Date(a.date) - new Date(b.date));
+        // Sort classes by date and then by time in memory
+        fetchedClasses.sort((a, b) => {
+          const dateA = new Date(a.date + 'T' + (a.time || '00:00'));
+          const dateB = new Date(b.date + 'T' + (b.time || '00:00'));
+          return dateA - dateB;
+        });
         setClasses(fetchedClasses);
       }, (error) => {
         console.error("Error fetching classes:", error);
@@ -191,6 +192,13 @@ const App = () => {
       setModalConfirmAction(() => () => setModalMessage(''));
       return;
     }
+    // Added validation for time
+    if (!newClass.time.trim() && !editingClass?.time.trim()) {
+      setModalMessage("La hora de la clase no puede estar vacía.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+      return;
+    }
+
 
     try {
       const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
@@ -200,7 +208,8 @@ const App = () => {
         await updateDoc(classRef, {
           title: editingClass.title,
           description: editingClass.description,
-          date: new Date(editingClass.date),
+          date: new Date(editingClass.date), // Store as Firestore Timestamp
+          time: editingClass.time, // Store time as string (HH:MM)
           dayOfWeek: editingClass.dayOfWeek,
           status: editingClass.status,
           workshopType: editingClass.workshopType,
@@ -212,14 +221,16 @@ const App = () => {
         await addDoc(sharedClassesCollectionRef, {
           title: newClass.title,
           description: newClass.description,
-          date: new Date(newClass.date),
+          date: new Date(newClass.date), // Store as Firestore Timestamp
+          time: newClass.time, // Store time as string (HH:MM)
           dayOfWeek: newClass.dayOfWeek,
           status: newClass.status,
           workshopType: selectedWorkshop,
           createdAt: new Date(),
-          createdBy: userId, // Track which anonymous session ID created this class
+          createdBy: userId,
         });
-        setNewClass({ title: '', description: '', date: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop });
+        // Reset newClass state, including time
+        setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop });
         setModalMessage("Clase añadida con éxito.");
         setModalConfirmAction(() => () => setModalMessage(''));
       }
@@ -231,13 +242,15 @@ const App = () => {
   };
 
   const startEditing = (classToEdit) => {
-    setEditingClass({ ...classToEdit });
+    // Ensure time is correctly populated when editing
+    setEditingClass({ ...classToEdit, time: classToEdit.time || '' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEditing = () => {
+    // Reset newClass state, including time
     setEditingClass(null);
-    setNewClass({ title: '', description: '', date: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop });
+    setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop });
   };
 
   const deleteClass = (id) => {
@@ -428,6 +441,18 @@ const App = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
               />
             </div>
+            {/* New Time Input Field */}
+            <div>
+              <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+              <input
+                type="time"
+                id="time"
+                name="time"
+                value={editingClass ? editingClass.time : newClass.time}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+              />
+            </div>
             <div>
               <label htmlFor="dayOfWeek" className="block text-sm font-medium text-gray-700 mb-1">Día de la Semana</label>
               <select
@@ -587,7 +612,8 @@ const App = () => {
                               </span>
                             </div>
                             <p className="text-sm text-gray-600 mb-2">{cls.description || 'Sin descripción.'}</p>
-                            <p className="text-xs text-gray-500 mb-3">Fecha: {cls.date}</p>
+                            {/* Display date and time */}
+                            <p className="text-xs text-gray-500 mb-3">Fecha: {cls.date} {cls.time ? `(${cls.time})` : ''}</p>
                             {/* Mostrar quién creó la clase */}
                             {cls.createdBy && (
                               <p className="text-xs text-gray-400 mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
