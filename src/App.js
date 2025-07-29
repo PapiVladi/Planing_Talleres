@@ -41,6 +41,7 @@ const auth = getAuth(app);
 //       - Ve a la pestaña "Sign-in method" (Método de inicio de sesión).
 //       - Busca "Anonymous" (Anónimo) y asegúrate de que esté **HABILITADO**.
 //       - 
+
 //    B. Configurar Reglas de Seguridad de Firestore (para que puedan leer/escribir datos)
 //       - En el menú de la izquierda de la Consola de Firebase, ve a "Build" -> "Firestore Database".
 //       - Haz clic en "Create database" (Crear base de datos) si es la primera vez.
@@ -48,7 +49,8 @@ const auth = getAuth(app);
 //         - Selecciona una ubicación para tu base de datos (la más cercana a ti o a tus usuarios).
 //         - Haz clic en "Enable" (Habilitar).
 //       - Una vez que la base de datos esté creada, haz clic en la pestaña "Rules" (Reglas).
-//       - //       - **REEMPLAZA TODAS las reglas existentes con las siguientes, EXACTAMENTE así:**
+//       - 
+//       - **REEMPLAZA TODAS las reglas existentes con las siguientes, EXACTAMENTE así:**
 //         (¡CUIDADO! Esto hace los datos públicos para CUALQUIER usuario autenticado anónimamente en TU APP)
 /*
 rules_version = '2';
@@ -64,6 +66,7 @@ service cloud.firestore {
 */
 //       - Después de pegar las reglas, haz clic en el botón "Publish" (Publicar).
 //       - 
+
 // ====================================================================================================
 // ====================================================================================================
 
@@ -104,9 +107,7 @@ const App = () => {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [classes, setClasses] = useState([]);
   const [selectedWorkshop, setSelectedWorkshop] = useState('Electrónica');
-  // Added 'time' to newClass state
   const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: 'Electrónica' });
-  // Added 'time' to editingClass state
   const [editingClass, setEditingClass] = useState(null);
   const [modalMessage, setModalMessage] = useState('');
   const [modalConfirmAction, setModalConfirmAction] = useState(null);
@@ -119,7 +120,7 @@ const App = () => {
         await signInAnonymously(auth);
       } catch (error) {
         console.error("Error during Firebase authentication:", error);
-        setModalMessage("Error al conectar con la base de datos. Revisa tu configuración de Firebase.");
+        setModalMessage("Error al conectar con la base de datos. Por favor, recarga la página o revisa la configuración de Firebase.");
         setModalConfirmAction(() => () => setModalMessage(''));
       }
     };
@@ -146,10 +147,8 @@ const App = () => {
         const fetchedClasses = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-          // Convert Firestore timestamp to YYYY-MM-DD
           date: doc.data().date ? new Date(doc.data().date.seconds * 1000).toISOString().split('T')[0] : ''
         }));
-        // Sort classes by date and then by time in memory
         fetchedClasses.sort((a, b) => {
           const dateA = new Date(a.date + 'T' + (a.time || '00:00'));
           const dateB = new Date(b.date + 'T' + (b.time || '00:00'));
@@ -192,13 +191,11 @@ const App = () => {
       setModalConfirmAction(() => () => setModalMessage(''));
       return;
     }
-    // Added validation for time
     if (!newClass.time.trim() && !editingClass?.time.trim()) {
       setModalMessage("La hora de la clase no puede estar vacía.");
       setModalConfirmAction(() => () => setModalMessage(''));
       return;
     }
-
 
     try {
       const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
@@ -208,8 +205,8 @@ const App = () => {
         await updateDoc(classRef, {
           title: editingClass.title,
           description: editingClass.description,
-          date: new Date(editingClass.date), // Store as Firestore Timestamp
-          time: editingClass.time, // Store time as string (HH:MM)
+          date: new Date(editingClass.date),
+          time: editingClass.time,
           dayOfWeek: editingClass.dayOfWeek,
           status: editingClass.status,
           workshopType: editingClass.workshopType,
@@ -221,15 +218,14 @@ const App = () => {
         await addDoc(sharedClassesCollectionRef, {
           title: newClass.title,
           description: newClass.description,
-          date: new Date(newClass.date), // Store as Firestore Timestamp
-          time: newClass.time, // Store time as string (HH:MM)
+          date: new Date(newClass.date),
+          time: newClass.time,
           dayOfWeek: newClass.dayOfWeek,
           status: newClass.status,
           workshopType: selectedWorkshop,
           createdAt: new Date(),
           createdBy: userId,
         });
-        // Reset newClass state, including time
         setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop });
         setModalMessage("Clase añadida con éxito.");
         setModalConfirmAction(() => () => setModalMessage(''));
@@ -242,13 +238,11 @@ const App = () => {
   };
 
   const startEditing = (classToEdit) => {
-    // Ensure time is correctly populated when editing
     setEditingClass({ ...classToEdit, time: classToEdit.time || '' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEditing = () => {
-    // Reset newClass state, including time
     setEditingClass(null);
     setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop });
   };
@@ -358,12 +352,12 @@ const App = () => {
         showCancel={showModalCancel}
       />
 
-      <header className="bg-white rounded-xl shadow-lg p-6 mb-8 text-center">
-        <h1 className="text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
-        <p className="text-lg text-gray-600">Organiza y sigue el progreso de tus talleres de Viernes y Sábado.</p>
+      <header className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8 text-center">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
+        <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres de Viernes y Sábado.</p>
         {userId && (
-          <p className="text-sm text-gray-500 mt-2">
-            ID de Sesión Anónima (compartido para identificar tus aportaciones): <span className="font-mono bg-gray-100 px-2 py-1 rounded-md text-xs">{userId}</span>
+          <p className="text-xs sm:text-sm text-gray-500 mt-2">
+            ID de Sesión Anónima (compartido para identificar tus aportaciones): <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-md text-xs">{userId}</span>
           </p>
         )}
         {!isAuthReady && (
@@ -371,13 +365,13 @@ const App = () => {
         )}
       </header>
 
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Formulario de Añadir/Editar Clase */}
-        <section className="lg:col-span-1 bg-white rounded-xl shadow-lg p-6 h-fit sticky top-4">
-          <h2 className="text-2xl font-bold text-blue-600 mb-6 border-b pb-3">
+        <section className="lg:col-span-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 h-fit lg:sticky lg:top-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
             {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop}`}
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {!editingClass && (
               <div>
                 <label htmlFor="workshopType" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Taller</label>
@@ -386,7 +380,7 @@ const App = () => {
                   name="workshopType"
                   value={newClass.workshopType}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
                   <option value="Electrónica">Electrónica</option>
                   <option value="Teatro">Teatro</option>
@@ -402,7 +396,7 @@ const App = () => {
                   name="workshopType"
                   value={editingClass.workshopType}
                   readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed text-sm sm:text-base"
                 />
               </div>
             )}
@@ -415,7 +409,7 @@ const App = () => {
                 value={editingClass ? editingClass.title : newClass.title}
                 onChange={handleInputChange}
                 placeholder="Introducir título"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
             <div>
@@ -427,7 +421,7 @@ const App = () => {
                 onChange={handleInputChange}
                 rows="3"
                 placeholder="Detalles sobre la clase..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               ></textarea>
             </div>
             <div>
@@ -438,7 +432,7 @@ const App = () => {
                 name="date"
                 value={editingClass ? editingClass.date : newClass.date}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
             {/* New Time Input Field */}
@@ -450,7 +444,7 @@ const App = () => {
                 name="time"
                 value={editingClass ? editingClass.time : newClass.time}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
             <div>
@@ -460,7 +454,7 @@ const App = () => {
                 name="dayOfWeek"
                 value={editingClass ? editingClass.dayOfWeek : newClass.dayOfWeek}
                 onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               >
                 <option value="Viernes">Viernes</option>
                 <option value="Sábado">Sábado</option>
@@ -474,7 +468,7 @@ const App = () => {
                   name="status"
                   value={editingClass.status}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
                   <option value="Planeada">Planeada</option>
                   <option value="En Progreso">En Progreso</option>
@@ -482,17 +476,17 @@ const App = () => {
                 </select>
               </div>
             )}
-            <div className="flex space-x-4 mt-6">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mt-4 sm:mt-6">
               <button
                 onClick={addOrUpdateClass}
-                className="flex-1 bg-blue-600 text-white font-bold py-3 px-6 rounded-md hover:bg-blue-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                className="flex-1 bg-blue-600 text-white font-bold py-2.5 px-4 rounded-md hover:bg-blue-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-base sm:text-lg"
               >
                 {editingClass ? 'Guardar Cambios' : 'Añadir Clase'}
               </button>
               {editingClass && (
                 <button
                   onClick={cancelEditing}
-                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
+                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg"
                 >
                   Cancelar Edición
                 </button>
@@ -502,12 +496,12 @@ const App = () => {
         </section>
 
         {/* Lista de Clases y Gráficos de Avance */}
-        <section className="lg:col-span-2 space-y-8">
+        <section className="lg:col-span-2 space-y-6 sm:space-y-8">
           {/* Workshop Selector */}
-          <div className="bg-white rounded-xl shadow-lg p-4 mb-6 flex justify-center space-x-4">
+          <div className="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-4">
             <button
               onClick={() => setSelectedWorkshop('Electrónica')}
-              className={`px-6 py-2 rounded-md font-semibold transition-all duration-200 ${
+              className={`px-4 py-2 rounded-md font-semibold text-sm sm:text-base transition-all duration-200 ${
                 selectedWorkshop === 'Electrónica'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -517,7 +511,7 @@ const App = () => {
             </button>
             <button
               onClick={() => setSelectedWorkshop('Teatro')}
-              className={`px-6 py-2 rounded-md font-semibold transition-all duration-200 ${
+              className={`px-4 py-2 rounded-md font-semibold text-sm sm:text-base transition-all duration-200 ${
                 selectedWorkshop === 'Teatro'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -528,23 +522,23 @@ const App = () => {
           </div>
 
           {/* Sección de Gráficos de Avance */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-blue-600 mb-4 border-b pb-3">Avance General ({selectedWorkshop})</h2>
-            <div className="text-center mb-4">
-              <p className="text-3xl font-extrabold text-green-600">{progressPercentage}% Completado</p>
-              <p className="text-lg text-gray-700 mt-2">{getProgressMessage()}</p>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop})</h2>
+            <div className="text-center mb-3 sm:mb-4">
+              <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{progressPercentage}% Completado</p>
+              <p className="text-base sm:text-lg text-gray-700 mt-1 sm:mt-2">{getProgressMessage()}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Gráfico de Estado General */}
-              <div className="bg-gray-50 p-4 rounded-lg shadow-inner">
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">Estado de Clases</h3>
-                <ResponsiveContainer width="100%" height={300}>
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Estado de Clases</h3>
+                <ResponsiveContainer width="100%" height={250}> {/* Adjusted height for responsiveness */}
                   <PieChart>
                     <Pie
                       data={overallStatusData}
                       cx="50%"
                       cy="50%"
-                      outerRadius={100}
+                      outerRadius={80} // Adjusted radius
                       fill="#8884d8"
                       dataKey="value"
                       labelLine={false}
@@ -561,20 +555,20 @@ const App = () => {
               </div>
 
               {/* Gráfico de Progreso por Día */}
-              <div className="bg-gray-50 p-4 rounded-lg shadow-inner">
-                <h3 className="text-xl font-semibold text-gray-700 mb-3">Clases por Día</h3>
-                <ResponsiveContainer width="100%" height={300}>
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Clases por Día</h3>
+                <ResponsiveContainer width="100%" height={250}> {/* Adjusted height for responsiveness */}
                   <BarChart
                     data={dailyProgressData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 5 }} // Adjusted margins
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
+                    <XAxis dataKey="day" fontSize={12} /> {/* Adjusted font size */}
+                    <YAxis fontSize={12} /> {/* Adjusted font size */}
                     <Tooltip />
-                    <Legend />
-                    <Bar dataKey="Clases Planeadas" fill="#2196F3" radius={[10, 10, 0, 0]} />
-                    <Bar dataKey="Clases Completadas" fill="#4CAF50" radius={[10, 10, 0, 0]} />
+                    <Legend wrapperStyle={{ fontSize: '12px' }} /> {/* Adjusted font size */}
+                    <Bar dataKey="Clases Planeadas" fill="#2196F3" radius={[8, 8, 0, 0]} /> {/* Adjusted radius */}
+                    <Bar dataKey="Clases Completadas" fill="#4CAF50" radius={[8, 8, 0, 0]} /> {/* Adjusted radius */}
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -582,28 +576,28 @@ const App = () => {
           </div>
 
           {/* Lista de Clases */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-blue-600 mb-4 border-b pb-3">Mis Clases de {selectedWorkshop}</h2>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Mis Clases de {selectedWorkshop}</h2>
             {classes.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
+              <p className="text-center text-gray-500 py-6 sm:py-8 text-base sm:text-lg">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {['Viernes', 'Sábado'].map(day => (
                   <div key={day}>
-                    <h3 className="text-xl font-bold text-blue-500 mb-4 border-b-2 border-blue-200 pb-2">{day}</h3>
+                    <h3 className="text-lg sm:text-xl font-bold text-blue-500 mb-3 sm:mb-4 border-b-2 border-blue-200 pb-1.5 sm:pb-2">{day}</h3>
                     {classes.filter(c => c.dayOfWeek === day).length === 0 ? (
-                      <p className="text-gray-500 italic ml-4">No hay clases para este {day} en {selectedWorkshop}.</p>
+                      <p className="text-gray-500 italic ml-2 sm:ml-4 text-sm sm:text-base">No hay clases para este {day} en {selectedWorkshop}.</p>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         {classes.filter(c => c.dayOfWeek === day).map(cls => (
-                          <div key={cls.id} className={`bg-gray-50 p-5 rounded-lg shadow-sm border ${
+                          <div key={cls.id} className={`bg-gray-50 p-4 sm:p-5 rounded-lg shadow-sm border ${
                             cls.status === 'Completada' ? 'border-green-400' :
                             cls.status === 'En Progreso' ? 'border-yellow-400' :
                             'border-blue-300'
                           }`}>
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="text-lg font-semibold text-gray-900">{cls.title}</h4>
-                              <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            <div className="flex justify-between items-start mb-1.5 sm:mb-2">
+                              <h4 className="text-base sm:text-lg font-semibold text-gray-900">{cls.title}</h4>
+                              <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
                                 cls.status === 'Completada' ? 'bg-green-100 text-green-800' :
                                 cls.status === 'En Progreso' ? 'bg-yellow-100 text-yellow-800' :
                                 'bg-blue-100 text-blue-800'
@@ -611,30 +605,30 @@ const App = () => {
                                 {cls.status}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 mb-2">{cls.description || 'Sin descripción.'}</p>
+                            <p className="text-sm text-gray-600 mb-1.5 sm:mb-2">{cls.description || 'Sin descripción.'}</p>
                             {/* Display date and time */}
-                            <p className="text-xs text-gray-500 mb-3">Fecha: {cls.date} {cls.time ? `(${cls.time})` : ''}</p>
+                            <p className="text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3">Fecha: {cls.date} {cls.time ? `(${cls.time})` : ''}</p>
                             {/* Mostrar quién creó la clase */}
                             {cls.createdBy && (
-                              <p className="text-xs text-gray-400 mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
+                              <p className="text-xs text-gray-400 mb-2 sm:mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
                             )}
                             <div className="flex flex-wrap gap-2">
                               <button
                                 onClick={() => startEditing(cls)}
-                                className="px-3 py-1 text-sm bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
+                                className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
                               >
                                 Editar
                               </button>
                               <button
                                 onClick={() => deleteClass(cls.id)}
-                                className="px-3 py-1 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                                className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
                               >
                                 Eliminar
                               </button>
                               <select
                                 value={cls.status}
                                 onChange={(e) => updateClassStatus(cls.id, e.target.value)}
-                                className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                                className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-md bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
                               >
                                 <option value="Planeada">Planeada</option>
                                 <option value="En Progreso">En Progreso</option>
