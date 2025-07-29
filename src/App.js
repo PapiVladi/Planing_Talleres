@@ -456,6 +456,8 @@ const App = () => {
       <header className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
         <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres de Viernes y Sábado.</p>
+        {/* Mensaje de prueba de actualización */}
+        <p className="text-sm text-red-500 font-bold mt-2">VERSIÓN DE PRUEBA: 29/07/2025 - V4</p>
         {userId && (
           <p className="text-xs sm:text-sm text-gray-500 mt-2">
             ID de Sesión Anónima (compartido para identificar tus aportaciones): <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-md text-xs">{userId}</span>
@@ -473,7 +475,6 @@ const App = () => {
             {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop || 'un Taller'}`}
           </h2>
           <div className="space-y-3 sm:space-y-4">
-            {/* Workshop Selector in the form for new classes */}
             {!editingClass && (
               <div>
                 <label htmlFor="workshopType" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Taller</label>
@@ -590,7 +591,7 @@ const App = () => {
               {editingClass && (
                 <button
                   onClick={cancelEditing}
-                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg"
+                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
                 >
                   Cancelar Edición
                 </button>
@@ -602,7 +603,7 @@ const App = () => {
         {/* Lista de Clases y Gráficos de Avance */}
         <section className="space-y-6 sm:space-y-8 lg:col-span-2 w-full order-last relative z-10">
           {/* Workshop Selector */}
-          <div className="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 flex flex-wrap justify-center gap-2 sm:gap-4"> {/* Changed to flex-wrap for buttons */}
+          <div className="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 flex flex-wrap justify-center gap-2 sm:gap-4">
             {workshops.length === 0 ? (
               <p className="text-center text-gray-500 text-sm sm:text-base">Añade talleres en la sección de "Gestión de Talleres".</p>
             ) : (
@@ -748,7 +749,7 @@ const App = () => {
         </section>
 
         {/* Sección de Gestión de Talleres */}
-        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full relative z-10">
+        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full relative z-10 mt-6 sm:mt-8 lg:mt-0"> {/* Added mt-6 sm:mt-8 lg:mt-0 to control vertical spacing */}
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
           <div className="space-y-4">
             <div>
