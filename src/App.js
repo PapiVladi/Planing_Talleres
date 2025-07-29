@@ -335,7 +335,7 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 font-sans text-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden"> {/* Added max-w-full overflow-x-hidden */}
       <CustomModal
         message={modalMessage}
         onConfirm={() => {
@@ -365,9 +365,9 @@ const App = () => {
         )}
       </header>
 
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8"> {/* Changed to flex-col for mobile stacking */}
         {/* Formulario de Añadir/Editar Clase */}
-        <section className="lg:col-span-1 bg-white rounded-xl shadow-lg p-4 sm:p-6 h-fit lg:sticky lg:top-4">
+        <section className="bg-white rounded-xl shadow-lg p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first z-10"> {/* Added w-full, order-first, z-10 */}
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
             {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop}`}
           </h2>
@@ -486,7 +486,7 @@ const App = () => {
               {editingClass && (
                 <button
                   onClick={cancelEditing}
-                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg"
+                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50"
                 >
                   Cancelar Edición
                 </button>
@@ -496,7 +496,7 @@ const App = () => {
         </section>
 
         {/* Lista de Clases y Gráficos de Avance */}
-        <section className="lg:col-span-2 space-y-6 sm:space-y-8">
+        <section className="space-y-6 sm:space-y-8 lg:col-span-2 w-full order-last"> {/* Added w-full, order-last */}
           {/* Workshop Selector */}
           <div className="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-4">
             <button
