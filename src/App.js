@@ -301,7 +301,7 @@ const App = () => {
           return;
         }
         const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
-        await deleteDoc(doc(sharedClassesCollectionRef, id));
+        await deleteDoc(doc(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`, id));
         setModalMessage("Clase eliminada con éxito.");
         setModalConfirmAction(() => () => setModalMessage(''));
         setShowModalCancel(false);
@@ -453,7 +453,7 @@ const App = () => {
         showCancel={showModalCancel}
       />
 
-      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl */}
+      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
         <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres de Viernes y Sábado.</p>
         {userId && (
@@ -466,9 +466,10 @@ const App = () => {
         )}
       </header>
 
-      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0">
-        {/* Formulario de Añadir/Editar Clase */}
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first relative z-20"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl */}
+      {/* Main content area with flex for mobile stacking and grid for desktop columns */}
+      <main className="flex flex-col lg:flex-row lg:gap-8 relative z-0">
+        {/* Columna Izquierda (Formulario) */}
+        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full lg:w-1/3 order-first relative z-20">
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
             {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop || 'un Taller'}`}
           </h2>
@@ -481,7 +482,7 @@ const App = () => {
                   name="workshopType"
                   value={newClass.workshopType}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
                   {workshops.length === 0 && <option value="">Añade un taller...</option>}
                   {workshops.map(workshop => (
@@ -499,7 +500,7 @@ const App = () => {
                   name="workshopType"
                   value={editingClass.workshopType}
                   readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base" // Adjusted rounded-md to rounded-lg
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base"
                 />
               </div>
             )}
@@ -512,7 +513,7 @@ const App = () => {
                 value={editingClass ? editingClass.title : newClass.title}
                 onChange={handleInputChange}
                 placeholder="Introducir título"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
             <div>
@@ -524,7 +525,7 @@ const App = () => {
                 onChange={handleInputChange}
                 rows="3"
                 placeholder="Detalles sobre la clase..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               ></textarea>
             </div>
             <div>
@@ -535,7 +536,7 @@ const App = () => {
                 name="date"
                 value={editingClass ? editingClass.date : newClass.date}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
             {/* New Time Input Field */}
@@ -547,7 +548,7 @@ const App = () => {
                 name="time"
                 value={editingClass ? editingClass.time : newClass.time}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
             <div>
@@ -557,7 +558,7 @@ const App = () => {
                 name="dayOfWeek"
                 value={editingClass ? editingClass.dayOfWeek : newClass.dayOfWeek}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               >
                 <option value="Viernes">Viernes</option>
                 <option value="Sábado">Sábado</option>
@@ -571,7 +572,7 @@ const App = () => {
                   name="status"
                   value={editingClass.status}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
                   <option value="Planeada">Planeada</option>
                   <option value="En Progreso">En Progreso</option>
@@ -582,14 +583,14 @@ const App = () => {
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mt-4 sm:mt-6">
               <button
                 onClick={addOrUpdateClass}
-                className="flex-1 bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-base sm:text-lg" // Adjusted rounded-md to rounded-lg
+                className="flex-1 bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-base sm:text-lg"
               >
                 {editingClass ? 'Guardar Cambios' : 'Añadir Clase'}
               </button>
               {editingClass && (
                 <button
                   onClick={cancelEditing}
-                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg" // Adjusted rounded-md to rounded-lg
+                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg"
                 >
                   Cancelar Edición
                 </button>
@@ -598,10 +599,58 @@ const App = () => {
           </div>
         </section>
 
-        {/* Contenedor para Gráficos y Lista de Clases (Columna 2 en desktop) */}
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 space-y-6 sm:space-y-8 lg:col-span-2 w-full order-2 lg:order-2 relative z-10"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl, added order-2 */}
+        {/* Columna Derecha (Contenedor para Gestión de Talleres, Selector, Gráficos y Lista de Clases) */}
+        <div className="flex flex-col gap-6 sm:gap-8 w-full lg:w-2/3 order-last relative z-10">
+          {/* Sección de Gestión de Talleres (Ahora más arriba en móviles) */}
+          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full">
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="newWorkshopName" className="block text-sm font-medium text-gray-700 mb-1">Añadir Nuevo Taller</label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    id="newWorkshopName"
+                    name="newWorkshopName"
+                    value={newWorkshopName}
+                    onChange={(e) => setNewWorkshopName(e.target.value)}
+                    placeholder="Ej. Taller de Música"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
+                  />
+                  <button
+                    onClick={addWorkshop}
+                    className="bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 text-base sm:text-lg"
+                  >
+                    Añadir Taller
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Talleres Existentes</h3>
+                {workshops.length === 0 ? (
+                  <p className="text-gray-500 italic text-sm sm:text-base">No hay talleres añadidos aún.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {workshops.map(workshop => (
+                      <li key={workshop.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
+                        <span className="text-base text-gray-800">{workshop.name}</span>
+                        <button
+                          onClick={() => deleteWorkshop(workshop.id, workshop.name)}
+                          className="px-3 py-1 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                        >
+                          Eliminar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
+
           {/* Workshop Selector */}
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+          <div className="bg-white rounded-2xl shadow-xl p-3 sm:p-4 flex flex-wrap justify-center gap-2 sm:gap-4">
             {workshops.length === 0 ? (
               <p className="text-center text-gray-500 text-sm sm:text-base">Añade talleres en la sección de "Gestión de Talleres".</p>
             ) : (
@@ -609,7 +658,7 @@ const App = () => {
                 <button
                   key={workshop.id}
                   onClick={() => setSelectedWorkshop(workshop.name)}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm sm:text-base transition-all duration-200 ${ // Adjusted rounded-md to rounded-lg
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm sm:text-base transition-all duration-200 ${
                     selectedWorkshop === workshop.name
                       ? 'bg-blue-600 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -622,7 +671,7 @@ const App = () => {
           </div>
 
           {/* Sección de Gráficos de Avance */}
-          <div className="space-y-4 sm:space-y-6"> {/* Added space-y for internal spacing */}
+          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop || 'Ningún Taller Seleccionado'})</h2>
             <div className="text-center mb-3 sm:mb-4">
               <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{progressPercentage}% Completado</p>
@@ -673,10 +722,10 @@ const App = () => {
                 </ResponsiveContainer>
               </div>
             </div>
-          </div>
+          </section>
 
           {/* Lista de Clases */}
-          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl */}
+          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Mis Clases de {selectedWorkshop || 'Ningún Taller Seleccionado'}</h2>
             {classes.length === 0 ? (
               <p className="text-center text-gray-500 py-6 sm:py-8 text-base sm:text-lg">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
@@ -715,20 +764,20 @@ const App = () => {
                             <div className="flex flex-wrap gap-2">
                               <button
                                 onClick={() => startEditing(cls)}
-                                className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
+                                className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
                               >
                                 Editar
                               </button>
                               <button
                                 onClick={() => deleteClass(cls.id)}
-                                className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
+                                className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
                               >
                                 Eliminar
                               </button>
                               <select
                                 value={cls.status}
                                 onChange={(e) => updateClassStatus(cls.id, e.target.value)}
-                                className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
+                                className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
                               >
                                 <option value="Planeada">Planeada</option>
                                 <option value="En Progreso">En Progreso</option>
@@ -743,54 +792,6 @@ const App = () => {
                 ))}
               </div>
             )}
-          </div>
-        </section>
-
-        {/* Sección de Gestión de Talleres (Columna 3 en desktop) */}
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full order-last lg:order-3 relative z-10"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl, added order-last lg:order-3 */}
-          <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="newWorkshopName" className="block text-sm font-medium text-gray-700 mb-1">Añadir Nuevo Taller</label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  id="newWorkshopName"
-                  name="newWorkshopName"
-                  value={newWorkshopName}
-                  onChange={(e) => setNewWorkshopName(e.target.value)}
-                  placeholder="Ej. Taller de Música"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
-                />
-                <button
-                  onClick={addWorkshop}
-                  className="bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 text-base sm:text-lg" // Adjusted rounded-md to rounded-lg
-                >
-                  Añadir Taller
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Talleres Existentes</h3>
-              {workshops.length === 0 ? (
-                <p className="text-gray-500 italic text-sm sm:text-base">No hay talleres añadidos aún.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {workshops.map(workshop => (
-                    <li key={workshop.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200"> {/* Adjusted rounded-md to rounded-lg */}
-                      <span className="text-base text-gray-800">{workshop.name}</span>
-                      <button
-                        onClick={() => deleteWorkshop(workshop.id, workshop.name)}
-                        className="px-3 py-1 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
-                      >
-                        Eliminar
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
           </div>
         </section>
       </main>
