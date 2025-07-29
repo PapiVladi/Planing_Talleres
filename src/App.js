@@ -600,9 +600,9 @@ const App = () => {
         </section>
 
         {/* Columna Derecha (Contenedor para Gestión de Talleres, Selector, Gráficos y Lista de Clases) */}
-        <div className="flex flex-col gap-6 sm:gap-8 w-full lg:w-2/3 order-last relative z-10">
+        <div className="flex flex-col gap-6 sm:gap-8 w-full lg:w-2/3 relative z-10">
           {/* Sección de Gestión de Talleres (Ahora más arriba en móviles) */}
-          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full">
+          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full order-1"> {/* Added order-1 to place it first in the right column */}
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
             <div className="space-y-4">
               <div>
@@ -649,8 +649,8 @@ const App = () => {
             </div>
           </section>
 
-          {/* Workshop Selector */}
-          <div className="bg-white rounded-2xl shadow-xl p-3 sm:p-4 flex flex-wrap justify-center gap-2 sm:gap-4">
+          {/* Workshop Selector (moved inside the right column, after workshop management) */}
+          <div className="bg-white rounded-2xl shadow-xl p-3 sm:p-4 flex flex-wrap justify-center gap-2 sm:gap-4 order-2"> {/* Added order-2 */}
             {workshops.length === 0 ? (
               <p className="text-center text-gray-500 text-sm sm:text-base">Añade talleres en la sección de "Gestión de Talleres".</p>
             ) : (
@@ -671,7 +671,7 @@ const App = () => {
           </div>
 
           {/* Sección de Gráficos de Avance */}
-          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6">
+          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 order-3"> {/* Added order-3 */}
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop || 'Ningún Taller Seleccionado'})</h2>
             <div className="text-center mb-3 sm:mb-4">
               <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{progressPercentage}% Completado</p>
@@ -725,7 +725,7 @@ const App = () => {
           </section>
 
           {/* Lista de Clases */}
-          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6">
+          <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 order-4"> {/* Added order-4 */}
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Mis Clases de {selectedWorkshop || 'Ningún Taller Seleccionado'}</h2>
             {classes.length === 0 ? (
               <p className="text-center text-gray-500 py-6 sm:py-8 text-base sm:text-lg">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
