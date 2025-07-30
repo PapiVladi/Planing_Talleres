@@ -592,7 +592,7 @@ const App = () => {
             <h1>Plan de Clases: {workshopName}</h1>
             <h2>{week.label}</h2>
           </header>
-          <div className="space-y-6">
+          <div className="days-wrapper">
               {week.sortedDays.map(day => (
                  <div key={day} className="day-container">
                     <h3 className="day-title">{day}</h3>
@@ -600,38 +600,31 @@ const App = () => {
                       {week.days[day].map(cls => (
                         <div key={cls.id} className="class-card-printable">
                            <div className="class-header-printable">
-                             <h4 className="class-title-printable">{cls.title}</h4>
-                             <span className="class-status-printable">{cls.status}</span>
+                             <h4>{cls.title}</h4>
+                             <span>{cls.date} ({cls.time}) | {cls.status}</span>
                            </div>
-                           <p className='class-meta-printable'>{cls.date} ({cls.time})</p>
                            
-                           <table className="pedagogy-table">
+                           <table className="details-table">
                             <tbody>
                               <tr>
-                                <td>
-                                  <strong>Propósito:</strong>
-                                  <p>{cls.purpose || 'N/A'}</p>
-                                </td>
-                                <td>
-                                  <strong>Inicio:</strong>
-                                  <p>{cls.activity_start || 'N/A'}</p>
-                                </td>
+                                <td className="label-cell">Propósito:</td>
+                                <td className="content-cell">{cls.purpose || '-'}</td>
+                              </tr>
+                              <tr>
+                                <td className="label-cell">Inicio:</td>
+                                <td className="content-cell">{cls.activity_start || '-'}</td>
+                              </tr>
+                              <tr>
+                                <td className="label-cell">Desarrollo:</td>
+                                <td className="content-cell">{cls.activity_main || '-'}</td>
+                              </tr>
+                              <tr>
+                                <td className="label-cell">Cierre:</td>
+                                <td className="content-cell">{cls.activity_end || '-'}</td>
                               </tr>
                                <tr>
-                                <td>
-                                  <strong>Recursos:</strong>
-                                  <p>{cls.resources || 'N/A'}</p>
-                                </td>
-                                <td>
-                                  <strong>Desarrollo:</strong>
-                                  <p>{cls.activity_main || 'N/A'}</p>
-                                </td>
-                              </tr>
-                               <tr>
-                                <td colSpan="2">
-                                  <strong>Cierre:</strong>
-                                  <p>{cls.activity_end || 'N/A'}</p>
-                                </td>
+                                <td className="label-cell">Recursos:</td>
+                                <td className="content-cell">{cls.resources || '-'}</td>
                               </tr>
                             </tbody>
                            </table>
@@ -663,7 +656,7 @@ const App = () => {
       @media print {
         @page {
           size: A4;
-          margin: 20mm;
+          margin: 15mm;
         }
         body {
           -webkit-print-color-adjust: exact;
@@ -672,6 +665,7 @@ const App = () => {
         body * {
           visibility: hidden;
           font-family: Arial, sans-serif;
+          line-height: 1.4;
         }
         .print-section, .print-section * {
           visibility: visible;
@@ -684,76 +678,79 @@ const App = () => {
           width: 100%;
         }
         .print-header {
-          background-color: #f2f2f2 !important;
-          padding: 12px;
-          border-bottom: 2px solid #333;
           margin-bottom: 20px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 10px;
         }
         .print-header h1 {
-          font-size: 18pt;
+          font-size: 16pt;
           margin: 0;
+          color: #000;
         }
         .print-header h2 {
-          font-size: 14pt;
+          font-size: 12pt;
           margin: 0;
           font-weight: normal;
-        }
-        .day-container {
-          page-break-inside: avoid;
+          color: #333;
         }
         .day-title {
-          font-size: 16pt;
-          border-bottom: 1px solid #ccc;
+          font-size: 14pt;
+          color: #000;
+          border-bottom: 1px solid #999;
           padding-bottom: 5px;
-          margin-bottom: 10px;
+          margin-top: 20px;
+          margin-bottom: 15px;
         }
         .class-card-printable {
           border: 1px solid #ccc;
-          border-radius: 5px;
           padding: 12px;
           margin-bottom: 15px;
           page-break-inside: avoid;
         }
         .class-header-printable {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
+          border-bottom: 1px solid #eee;
+          padding-bottom: 8px;
+          margin-bottom: 8px;
         }
-        .class-title-printable {
-          font-size: 14pt;
+        .class-header-printable h4 {
+          font-size: 12pt;
           font-weight: bold;
           margin: 0;
+          color: #000;
         }
-        .class-status-printable {
-          font-size: 10pt;
-          background-color: #eee !important;
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-        .class-meta-printable {
-          font-size: 10pt;
+        .class-header-printable span {
+          font-size: 9pt;
           color: #555;
-          margin: 4px 0 12px 0;
         }
-        .pedagogy-table {
+        .details-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 12px;
-          font-size: 11pt;
+          font-size: 10pt;
         }
-        .pedagogy-table td {
-          border: 1px solid #ddd;
-          padding: 8px;
+        .details-table tr {
+          border-bottom: 1px solid #f0f0f0;
+        }
+        .details-table tr:last-child {
+          border-bottom: none;
+        }
+        .details-table td {
+          padding: 6px;
           vertical-align: top;
-          width: 50%;
         }
-        .pedagogy-table td p {
-          margin: 2px 0 0 0;
+        .label-cell {
+          font-weight: bold;
+          width: 100px; /* Fixed width for labels */
+        }
+        .content-cell {
+          color: #333;
         }
         .checklist-section {
-          margin-top: 12px;
+          margin-top: 10px;
           border-top: 1px solid #eee;
           padding-top: 8px;
+          font-size: 10pt;
+        }
+        .checklist-section strong {
           font-size: 11pt;
         }
         .checklist-section ul {
@@ -761,11 +758,8 @@ const App = () => {
           padding-left: 0;
           margin: 4px 0 0 0;
         }
-        .checklist-section li {
-          margin-bottom: 2px;
-        }
         .checkbox {
-          font-size: 14pt;
+          font-size: 12pt;
           line-height: 1;
         }
         .no-print {
