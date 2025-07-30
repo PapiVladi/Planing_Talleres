@@ -103,6 +103,21 @@ const CustomModal = ({ message, onConfirm, onCancel, showCancel = false }) => {
   );
 };
 
+const initialClassState = {
+  title: '',
+  purpose: '',
+  activity_start: '',
+  activity_main: '',
+  activity_end: '',
+  resources: '',
+  date: '',
+  time: '',
+  dayOfWeek: '',
+  status: 'Planeada',
+  workshopType: '',
+  objectives: []
+};
+
 
 // Main App Component
 const App = () => {
@@ -112,7 +127,7 @@ const App = () => {
   const [workshops, setWorkshops] = useState([]);
   const [newWorkshopName, setNewWorkshopName] = useState('');
   const [selectedWorkshop, setSelectedWorkshop] = useState('');
-  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: '', status: 'Planeada', workshopType: '', objectives: [] });
+  const [newClass, setNewClass] = useState(initialClassState);
   const [editingClass, setEditingClass] = useState(null);
   const [modalMessage, setModalMessage] = useState('');
   const [modalConfirmAction, setModalConfirmAction] = useState(null);
@@ -210,8 +225,6 @@ const App = () => {
 
     if (name === 'date') {
       const weekDays = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-      // Correctly handle date parsing to avoid timezone issues.
-      // By creating date as YYYY-MM-DDT00:00:00, it's interpreted in the local timezone.
       const selectedDate = new Date(`${value}T00:00:00`);
       const dayOfWeek = weekDays[selectedDate.getDay()];
       stateSetter({ ...currentState, date: value, dayOfWeek: dayOfWeek });
@@ -255,38 +268,37 @@ const App = () => {
       return;
     }
 
+    // Prepare data for Firestore, removing the old 'description' if it exists
+    const dataToSave = {
+      title: classData.title,
+      purpose: classData.purpose || '',
+      activity_start: classData.activity_start || '',
+      activity_main: classData.activity_main || '',
+      activity_end: classData.activity_end || '',
+      resources: classData.resources || '',
+      date: new Date(classData.date),
+      time: classData.time,
+      dayOfWeek: classData.dayOfWeek,
+      status: classData.status,
+      workshopType: classData.workshopType,
+      objectives: classData.objectives || [],
+    };
 
     try {
       const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
 
       if (editingClass) {
         const classRef = doc(sharedClassesCollectionRef, editingClass.id);
-        await updateDoc(classRef, {
-          title: classData.title,
-          description: classData.description,
-          date: new Date(classData.date),
-          time: classData.time,
-          dayOfWeek: classData.dayOfWeek,
-          status: classData.status,
-          workshopType: classData.workshopType,
-          objectives: classData.objectives || [],
-        });
+        await updateDoc(classRef, { ...dataToSave });
         setEditingClass(null);
         setModalMessage("Clase actualizada con éxito.");
       } else {
         await addDoc(sharedClassesCollectionRef, {
-          title: classData.title,
-          description: classData.description,
-          date: new Date(classData.date),
-          time: classData.time,
-          dayOfWeek: classData.dayOfWeek,
-          status: classData.status,
-          workshopType: selectedWorkshop,
-          objectives: classData.objectives || [],
+          ...dataToSave,
           createdAt: new Date(),
           createdBy: userId,
         });
-        setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: '', status: 'Planeada', workshopType: selectedWorkshop, objectives: [] });
+        setNewClass({ ...initialClassState, workshopType: selectedWorkshop });
         setModalMessage("Clase añadida con éxito.");
       }
       setModalConfirmAction(() => () => setModalMessage(''));
@@ -299,13 +311,18 @@ const App = () => {
   };
 
   const startEditing = (classToEdit) => {
-    setEditingClass({ ...classToEdit, time: classToEdit.time || '', objectives: classToEdit.objectives || [] });
+    setEditingClass({
+      ...initialClassState,
+      ...classToEdit,
+      time: classToEdit.time || '',
+      objectives: classToEdit.objectives || []
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEditing = () => {
     setEditingClass(null);
-    setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: '', status: 'Planeada', workshopType: selectedWorkshop, objectives: [] });
+    setNewClass({ ...initialClassState, workshopType: selectedWorkshop });
   };
 
   const deleteClass = (id) => {
@@ -456,19 +473,18 @@ const App = () => {
       { name: 'En Progreso', value: inProgressClasses, color: '#FFC107' },
       { name: 'Planeadas', value: plannedClasses, color: '#2196F3' },
     ];
-    
-    // --- Dynamic Daily Progress Data ---
+
     const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const progressByDay = {};
 
     classes.forEach(c => {
-        if (!progressByDay[c.dayOfWeek]) {
-            progressByDay[c.dayOfWeek] = { 'Clases Planeadas': 0, 'Clases Completadas': 0 };
-        }
-        progressByDay[c.dayOfWeek]['Clases Planeadas']++;
-        if (c.status === 'Completada') {
-            progressByDay[c.dayOfWeek]['Clases Completadas']++;
-        }
+      if (!progressByDay[c.dayOfWeek]) {
+        progressByDay[c.dayOfWeek] = { 'Clases Planeadas': 0, 'Clases Completadas': 0 };
+      }
+      progressByDay[c.dayOfWeek]['Clases Planeadas']++;
+      if (c.status === 'Completada') {
+        progressByDay[c.dayOfWeek]['Clases Completadas']++;
+      }
     });
 
     const dailyProgressData = Object.keys(progressByDay)
@@ -496,9 +512,11 @@ const App = () => {
     const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const presentDays = [...new Set(classes.map(c => c.dayOfWeek))];
     presentDays.sort((a, b) => weekOrder.indexOf(a) - weekOrder.indexOf(b));
-    return presentDays.filter(day => weekOrder.includes(day)); // Ensure only valid days are shown
+    return presentDays.filter(day => weekOrder.includes(day));
   };
   const sortedClassDays = getSortedDays();
+
+  const currentFormData = editingClass || newClass;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0">
@@ -543,7 +561,7 @@ const App = () => {
                 <select
                   id="workshopType"
                   name="workshopType"
-                  value={newClass.workshopType}
+                  value={currentFormData.workshopType}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
@@ -561,7 +579,7 @@ const App = () => {
                   type="text"
                   id="workshopType"
                   name="workshopType"
-                  value={editingClass.workshopType}
+                  value={currentFormData.workshopType}
                   readOnly
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base"
                 />
@@ -573,33 +591,88 @@ const App = () => {
                 type="text"
                 id="title"
                 name="title"
-                value={editingClass ? editingClass.title : newClass.title}
+                value={currentFormData.title}
                 onChange={handleInputChange}
                 placeholder="Introducir título"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-              <textarea
-                id="description"
-                name="description"
-                value={editingClass ? editingClass.description : newClass.description}
-                onChange={handleInputChange}
-                rows="3"
-                placeholder="Detalles sobre la clase..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-              ></textarea>
+
+            {/* --- GUIA PEDAGOGICA --- */}
+            <div className='border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50'>
+              <h3 className='text-lg font-semibold text-gray-700'>Guía Pedagógica</h3>
+              <div>
+                <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 mb-1">Propósito de la Clase</label>
+                <input
+                  type="text"
+                  id="purpose"
+                  name="purpose"
+                  value={currentFormData.purpose}
+                  onChange={handleInputChange}
+                  placeholder="¿Qué competencia se desarrollará?"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="activity_start" className="block text-sm font-medium text-gray-700 mb-1">Inicio (Actividad de Apertura)</label>
+                <textarea
+                  id="activity_start"
+                  name="activity_start"
+                  value={currentFormData.activity_start}
+                  onChange={handleInputChange}
+                  rows="2"
+                  placeholder="¿Cómo iniciará la sesión?"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                ></textarea>
+              </div>
+              <div>
+                <label htmlFor="activity_main" className="block text-sm font-medium text-gray-700 mb-1">Desarrollo (Actividades Principales)</label>
+                <textarea
+                  id="activity_main"
+                  name="activity_main"
+                  value={currentFormData.activity_main}
+                  onChange={handleInputChange}
+                  rows="4"
+                  placeholder="Detallar actividades centrales..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                ></textarea>
+              </div>
+              <div>
+                <label htmlFor="activity_end" className="block text-sm font-medium text-gray-700 mb-1">Cierre (Actividad de Conclusión)</label>
+                <textarea
+                  id="activity_end"
+                  name="activity_end"
+                  value={currentFormData.activity_end}
+                  onChange={handleInputChange}
+                  rows="2"
+                  placeholder="¿Cómo concluirá la sesión?"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                ></textarea>
+              </div>
+              <div>
+                <label htmlFor="resources" className="block text-sm font-medium text-gray-700 mb-1">Recursos y Materiales</label>
+                <textarea
+                  id="resources"
+                  name="resources"
+                  value={currentFormData.resources}
+                  onChange={handleInputChange}
+                  rows="2"
+                  placeholder="Listar materiales necesarios..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                ></textarea>
+              </div>
             </div>
+
+            {/* --- SECCIÓN DE OBJETIVOS (CHECKLIST) --- */}
             <div>
-              <label htmlFor="objective" className="block text-sm font-medium text-gray-700 mb-1">Objetivos de la Clase</label>
+              <label htmlFor="objective" className="block text-sm font-medium text-gray-700 mb-1">Objetivos Marcables (Checklist de Tareas)</label>
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
                   id="objective"
                   value={newObjective}
                   onChange={(e) => setNewObjective(e.target.value)}
-                  placeholder="Escribe un objetivo y añádelo"
+                  placeholder="Escribe una tarea específica y añádela"
                   className="flex-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
                 <button
@@ -611,7 +684,7 @@ const App = () => {
                 </button>
               </div>
               <ul className="space-y-2 max-h-32 overflow-y-auto pr-2">
-                {(editingClass ? editingClass.objectives : newClass.objectives).map((obj, index) => (
+                {currentFormData.objectives.map((obj, index) => (
                   <li key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded-md">
                     <span className="text-sm text-gray-800">{obj.text}</span>
                     <button
@@ -626,35 +699,40 @@ const App = () => {
                 ))}
               </ul>
             </div>
-            <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-              <input
-                type="date"
-                id="date"
-                name="date"
-                value={editingClass ? editingClass.date : newClass.date}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-              />
+
+            {/* --- FECHA Y HORA --- */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  id="date"
+                  name="date"
+                  value={currentFormData.date}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
+                />
+              </div>
+              <div>
+                <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+                <input
+                  type="time"
+                  id="time"
+                  name="time"
+                  value={currentFormData.time}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
+                />
+              </div>
             </div>
-            <div>
-              <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
-              <input
-                type="time"
-                id="time"
-                name="time"
-                value={editingClass ? editingClass.time : newClass.time}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-              />
-            </div>
+
             <div>
               <label htmlFor="dayOfWeek" className="block text-sm font-medium text-gray-700 mb-1">Día de la Semana</label>
               <input
                 type="text"
                 id="dayOfWeek"
                 name="dayOfWeek"
-                value={editingClass ? editingClass.dayOfWeek : newClass.dayOfWeek}
+                value={currentFormData.dayOfWeek}
                 readOnly
                 placeholder="Se calculará con la fecha"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base"
@@ -666,7 +744,7 @@ const App = () => {
                 <select
                   id="status"
                   name="status"
-                  value={editingClass.status}
+                  value={currentFormData.status}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
@@ -796,14 +874,33 @@ const App = () => {
                                 {cls.status}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 mb-1.5 sm:mb-2">{cls.description || 'Sin descripción.'}</p>
-                            <p className="text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3">Fecha: {cls.date} {cls.time ? `(${cls.time})` : ''}</p>
-                            {cls.createdBy && (
-                              <p className="text-xs text-gray-400 mb-2 sm:mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
+                            
+                            <div className='text-xs sm:text-sm text-gray-500 mb-3'>
+                                <span className='font-bold'>{cls.date}</span> {cls.time ? `(${cls.time})` : ''}
+                            </div>
+                            
+                            {/* --- GUIA PEDAGOGICA DISPLAY --- */}
+                            {cls.purpose || cls.activity_start || cls.activity_main || cls.activity_end || cls.resources ? (
+                              <div className="space-y-2 text-sm mb-3">
+                                {cls.purpose && <div><strong className='text-gray-700'>Propósito:</strong> <span className='text-gray-600'>{cls.purpose}</span></div>}
+                                {cls.activity_start && <div><strong className='text-gray-700'>Inicio:</strong> <span className='text-gray-600'>{cls.activity_start}</span></div>}
+                                {cls.activity_main && <div><strong className='text-gray-700'>Desarrollo:</strong> <span className='text-gray-600'>{cls.activity_main}</span></div>}
+                                {cls.activity_end && <div><strong className='text-gray-700'>Cierre:</strong> <span className='text-gray-600'>{cls.activity_end}</span></div>}
+                                {cls.resources && <div><strong className='text-gray-700'>Recursos:</strong> <span className='text-gray-600'>{cls.resources}</span></div>}
+                              </div>
+                            ) : (
+                                // Fallback for old classes with only a description
+                                cls.description && <p className="text-sm text-gray-600 mb-2">{cls.description}</p>
                             )}
+
+                            {cls.createdBy && (
+                              <p className="text-xs text-gray-400 mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
+                            )}
+                            
+                            {/* LISTA DE OBJETIVOS MARBABLES */}
                             {cls.objectives && cls.objectives.length > 0 && (
-                              <div className="mt-3 border-t pt-3">
-                                <h5 className="text-sm font-semibold text-gray-700 mb-2">Objetivos:</h5>
+                              <div className="border-t pt-3">
+                                <h5 className="text-sm font-semibold text-gray-700 mb-2">Checklist de Tareas:</h5>
                                 <ul className="space-y-1.5">
                                   {cls.objectives.map((obj, index) => (
                                     <li key={index} className="flex items-center">
@@ -825,7 +922,8 @@ const App = () => {
                                 </ul>
                               </div>
                             )}
-                            <div className="flex flex-wrap gap-2 mt-4">
+
+                            <div className="flex flex-wrap gap-2 mt-4 border-t pt-3">
                               <button
                                 onClick={() => startEditing(cls)}
                                 className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
