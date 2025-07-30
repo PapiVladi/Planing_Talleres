@@ -268,7 +268,6 @@ const App = () => {
       return;
     }
 
-    // Prepare data for Firestore, removing the old 'description' if it exists
     const dataToSave = {
       title: classData.title,
       purpose: classData.purpose || '',
@@ -497,9 +496,56 @@ const App = () => {
 
     return { overallStatusData, dailyProgressData, totalClasses, completedClasses };
   }, [classes]);
+  
+  // --- Helper function to get week identifier ---
+  const getWeekIdentifier = (dateString) => {
+    const date = new Date(`${dateString}T00:00:00`);
+    const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday...
+    const firstDayOfWeek = new Date(date);
+    // Adjust to Monday
+    firstDayOfWeek.setDate(date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+    
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    const formattedDate = firstDayOfWeek.toLocaleDateString('es-MX', options);
+
+    return {
+        id: firstDayOfWeek.toISOString().split('T')[0], // YYYY-MM-DD for stable sorting
+        label: `Semana del ${formattedDate}`
+    };
+  };
+
+  // --- Group classes by week and then by day ---
+  const getGroupedClasses = () => {
+      if (classes.length === 0) return [];
+      
+      const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      
+      const grouped = classes.reduce((acc, cls) => {
+          const week = getWeekIdentifier(cls.date);
+          if (!acc[week.id]) {
+              acc[week.id] = { label: week.label, days: {} };
+          }
+          if (!acc[week.id].days[cls.dayOfWeek]) {
+              acc[week.id].days[cls.dayOfWeek] = [];
+          }
+          acc[week.id].days[cls.dayOfWeek].push(cls);
+          return acc;
+      }, {});
+      
+      // Sort days within each week
+      Object.values(grouped).forEach(week => {
+          week.sortedDays = Object.keys(week.days).sort((a, b) => weekOrder.indexOf(a) - weekOrder.indexOf(b));
+      });
+      
+      // Sort weeks chronologically and return as an array
+      return Object.entries(grouped)
+        .sort(([weekIdA], [weekIdB]) => weekIdA.localeCompare(weekIdB))
+        .map(([id, data]) => ({ id, ...data }));
+  };
 
   const { overallStatusData, dailyProgressData, totalClasses, completedClasses } = getProgressData();
   const progressPercentage = totalClasses > 0 ? ((completedClasses / totalClasses) * 100).toFixed(1) : 0;
+  const groupedClasses = getGroupedClasses();
 
   const getProgressMessage = () => {
     if (totalClasses === 0) return "¡Empieza a añadir tus clases para ver el progreso!";
@@ -507,14 +553,6 @@ const App = () => {
     if (completedClasses > 0 && completedClasses < totalClasses) return "¡Vas muy bien! Sigue así.";
     return "Aún hay trabajo por hacer. ¡Ánimo!";
   };
-
-  const getSortedDays = () => {
-    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const presentDays = [...new Set(classes.map(c => c.dayOfWeek))];
-    presentDays.sort((a, b) => weekOrder.indexOf(a) - weekOrder.indexOf(b));
-    return presentDays.filter(day => weekOrder.includes(day));
-  };
-  const sortedClassDays = getSortedDays();
 
   const currentFormData = editingClass || newClass;
 
@@ -598,7 +636,6 @@ const App = () => {
               />
             </div>
 
-            {/* --- GUIA PEDAGOGICA --- */}
             <div className='border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50'>
               <h3 className='text-lg font-semibold text-gray-700'>Guía Pedagógica</h3>
               <div>
@@ -663,7 +700,6 @@ const App = () => {
               </div>
             </div>
 
-            {/* --- SECCIÓN DE OBJETIVOS (CHECKLIST) --- */}
             <div>
               <label htmlFor="objective" className="block text-sm font-medium text-gray-700 mb-1">Objetivos Marcables (Checklist de Tareas)</label>
               <div className="flex gap-2 mb-2">
@@ -700,7 +736,6 @@ const App = () => {
               </ul>
             </div>
 
-            {/* --- FECHA Y HORA --- */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
@@ -850,106 +885,106 @@ const App = () => {
             {classes.length === 0 ? (
               <p className="text-center text-gray-500 py-6 sm:py-8 text-base sm:text-lg">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
             ) : (
-              <div className="space-y-4 sm:space-y-6">
-                {sortedClassDays.map(day => (
-                  <div key={day}>
-                    <h3 className="text-lg sm:text-xl font-bold text-blue-500 mb-3 sm:mb-4 border-b-2 border-blue-200 pb-1.5 sm:pb-2">{day}</h3>
-                    {classes.filter(c => c.dayOfWeek === day).length === 0 ? (
-                      <p className="text-gray-500 italic ml-2 sm:ml-4 text-sm sm:text-base">No hay clases para este {day} en {selectedWorkshop}.</p>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                        {classes.filter(c => c.dayOfWeek === day).map(cls => (
-                          <div key={cls.id} className={`bg-gray-50 p-4 sm:p-5 rounded-lg shadow-sm border ${
-                            cls.status === 'Completada' ? 'border-green-400' :
-                            cls.status === 'En Progreso' ? 'border-yellow-400' :
-                            'border-blue-300'
-                          }`}>
-                            <div className="flex justify-between items-start mb-1.5 sm:mb-2">
-                              <h4 className="text-base sm:text-lg font-semibold text-gray-900">{cls.title}</h4>
-                              <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                                cls.status === 'Completada' ? 'bg-green-100 text-green-800' :
-                                cls.status === 'En Progreso' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-blue-100 text-blue-800'
-                              }`}>
-                                {cls.status}
-                              </span>
-                            </div>
-                            
-                            <div className='text-xs sm:text-sm text-gray-500 mb-3'>
-                                <span className='font-bold'>{cls.date}</span> {cls.time ? `(${cls.time})` : ''}
-                            </div>
-                            
-                            {/* --- GUIA PEDAGOGICA DISPLAY --- */}
-                            {cls.purpose || cls.activity_start || cls.activity_main || cls.activity_end || cls.resources ? (
-                              <div className="space-y-2 text-sm mb-3">
-                                {cls.purpose && <div><strong className='text-gray-700'>Propósito:</strong> <span className='text-gray-600'>{cls.purpose}</span></div>}
-                                {cls.activity_start && <div><strong className='text-gray-700'>Inicio:</strong> <span className='text-gray-600'>{cls.activity_start}</span></div>}
-                                {cls.activity_main && <div><strong className='text-gray-700'>Desarrollo:</strong> <span className='text-gray-600'>{cls.activity_main}</span></div>}
-                                {cls.activity_end && <div><strong className='text-gray-700'>Cierre:</strong> <span className='text-gray-600'>{cls.activity_end}</span></div>}
-                                {cls.resources && <div><strong className='text-gray-700'>Recursos:</strong> <span className='text-gray-600'>{cls.resources}</span></div>}
-                              </div>
-                            ) : (
-                                // Fallback for old classes with only a description
-                                cls.description && <p className="text-sm text-gray-600 mb-2">{cls.description}</p>
-                            )}
+              <div className="space-y-6">
+                {groupedClasses.map(week => (
+                  <div key={week.id}>
+                    <h3 className="text-lg sm:text-xl font-bold text-purple-600 mb-4 bg-purple-50 p-2 rounded-lg">{week.label}</h3>
+                    <div className="space-y-4 sm:space-y-6 ml-2 sm:ml-4">
+                      {week.sortedDays.map(day => (
+                         <div key={day}>
+                            <h4 className="text-lg sm:text-xl font-bold text-blue-500 mb-3 border-b-2 border-blue-200 pb-1.5">{day}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                              {week.days[day].map(cls => (
+                                <div key={cls.id} className={`bg-gray-50 p-4 sm:p-5 rounded-lg shadow-sm border ${
+                                  cls.status === 'Completada' ? 'border-green-400' :
+                                  cls.status === 'En Progreso' ? 'border-yellow-400' :
+                                  'border-blue-300'
+                                }`}>
+                                  <div className="flex justify-between items-start mb-1.5 sm:mb-2">
+                                    <h5 className="text-base sm:text-lg font-semibold text-gray-900">{cls.title}</h5>
+                                    <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                                      cls.status === 'Completada' ? 'bg-green-100 text-green-800' :
+                                      cls.status === 'En Progreso' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-blue-100 text-blue-800'
+                                    }`}>
+                                      {cls.status}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className='text-xs sm:text-sm text-gray-500 mb-3'>
+                                      <span className='font-bold'>{cls.date}</span> {cls.time ? `(${cls.time})` : ''}
+                                  </div>
+                                  
+                                  {cls.purpose || cls.activity_start || cls.activity_main || cls.activity_end || cls.resources ? (
+                                    <div className="space-y-2 text-sm mb-3">
+                                      {cls.purpose && <div><strong className='text-gray-700'>Propósito:</strong> <span className='text-gray-600'>{cls.purpose}</span></div>}
+                                      {cls.activity_start && <div><strong className='text-gray-700'>Inicio:</strong> <span className='text-gray-600'>{cls.activity_start}</span></div>}
+                                      {cls.activity_main && <div><strong className='text-gray-700'>Desarrollo:</strong> <span className='text-gray-600'>{cls.activity_main}</span></div>}
+                                      {cls.activity_end && <div><strong className='text-gray-700'>Cierre:</strong> <span className='text-gray-600'>{cls.activity_end}</span></div>}
+                                      {cls.resources && <div><strong className='text-gray-700'>Recursos:</strong> <span className='text-gray-600'>{cls.resources}</span></div>}
+                                    </div>
+                                  ) : (
+                                      cls.description && <p className="text-sm text-gray-600 mb-2">{cls.description}</p>
+                                  )}
 
-                            {cls.createdBy && (
-                              <p className="text-xs text-gray-400 mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
-                            )}
-                            
-                            {/* LISTA DE OBJETIVOS MARBABLES */}
-                            {cls.objectives && cls.objectives.length > 0 && (
-                              <div className="border-t pt-3">
-                                <h5 className="text-sm font-semibold text-gray-700 mb-2">Checklist de Tareas:</h5>
-                                <ul className="space-y-1.5">
-                                  {cls.objectives.map((obj, index) => (
-                                    <li key={index} className="flex items-center">
-                                      <input
-                                        type="checkbox"
-                                        id={`obj-${cls.id}-${index}`}
-                                        checked={obj.completed}
-                                        onChange={() => handleToggleObjective(cls.id, index)}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                      />
-                                      <label
-                                        htmlFor={`obj-${cls.id}-${index}`}
-                                        className={`ml-2 text-sm text-gray-600 cursor-pointer ${obj.completed ? 'line-through text-gray-400' : ''}`}
-                                      >
-                                        {obj.text}
-                                      </label>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
+                                  {cls.createdBy && (
+                                    <p className="text-xs text-gray-400 mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
+                                  )}
+                                  
+                                  {cls.objectives && cls.objectives.length > 0 && (
+                                    <div className="border-t pt-3">
+                                      <h5 className="text-sm font-semibold text-gray-700 mb-2">Checklist de Tareas:</h5>
+                                      <ul className="space-y-1.5">
+                                        {cls.objectives.map((obj, index) => (
+                                          <li key={index} className="flex items-center">
+                                            <input
+                                              type="checkbox"
+                                              id={`obj-${cls.id}-${index}`}
+                                              checked={obj.completed}
+                                              onChange={() => handleToggleObjective(cls.id, index)}
+                                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            />
+                                            <label
+                                              htmlFor={`obj-${cls.id}-${index}`}
+                                              className={`ml-2 text-sm text-gray-600 cursor-pointer ${obj.completed ? 'line-through text-gray-400' : ''}`}
+                                            >
+                                              {obj.text}
+                                            </label>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
 
-                            <div className="flex flex-wrap gap-2 mt-4 border-t pt-3">
-                              <button
-                                onClick={() => startEditing(cls)}
-                                className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                onClick={() => deleteClass(cls.id)}
-                                className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
-                              >
-                                Eliminar
-                              </button>
-                              <select
-                                value={cls.status}
-                                onChange={(e) => updateClassStatus(cls.id, e.target.value)}
-                                className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                              >
-                                <option value="Planeada">Planeada</option>
-                                <option value="En Progreso">En Progreso</option>
-                                <option value="Completada">Completada</option>
-                              </select>
+                                  <div className="flex flex-wrap gap-2 mt-4 border-t pt-3">
+                                    <button
+                                      onClick={() => startEditing(cls)}
+                                      className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                      onClick={() => deleteClass(cls.id)}
+                                      className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                                    >
+                                      Eliminar
+                                    </button>
+                                    <select
+                                      value={cls.status}
+                                      onChange={(e) => updateClassStatus(cls.id, e.target.value)}
+                                      className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                                    >
+                                      <option value="Planeada">Planeada</option>
+                                      <option value="En Progreso">En Progreso</option>
+                                      <option value="Completada">Completada</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                         </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
