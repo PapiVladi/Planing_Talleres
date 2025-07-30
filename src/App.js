@@ -109,15 +109,15 @@ const App = () => {
   const [userId, setUserId] = useState(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [classes, setClasses] = useState([]);
-  const [workshops, setWorkshops] = useState([]); // New state for workshops
-  const [newWorkshopName, setNewWorkshopName] = useState(''); // New state for new workshop input
-  const [selectedWorkshop, setSelectedWorkshop] = useState(''); // Default will be set after fetching workshops
-  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: '', objectives: [] }); // workshopType will be set dynamically
+  const [workshops, setWorkshops] = useState([]);
+  const [newWorkshopName, setNewWorkshopName] = useState('');
+  const [selectedWorkshop, setSelectedWorkshop] = useState('');
+  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: '', status: 'Planeada', workshopType: '', objectives: [] });
   const [editingClass, setEditingClass] = useState(null);
   const [modalMessage, setModalMessage] = useState('');
   const [modalConfirmAction, setModalConfirmAction] = useState(null);
   const [showModalCancel, setShowModalCancel] = useState(false);
-  const [newObjective, setNewObjective] = useState(''); // Estado para el input del nuevo objetivo
+  const [newObjective, setNewObjective] = useState('');
 
   // Authentication and Firestore Initialization
   useEffect(() => {
@@ -153,11 +153,10 @@ const App = () => {
           ...doc.data()
         }));
         setWorkshops(fetchedWorkshops);
-        // Set default selected workshop if none is selected or if the current one is deleted
         if (fetchedWorkshops.length > 0 && !fetchedWorkshops.some(w => w.name === selectedWorkshop)) {
           setSelectedWorkshop(fetchedWorkshops[0].name);
         } else if (fetchedWorkshops.length === 0) {
-          setSelectedWorkshop(''); // No workshops available
+          setSelectedWorkshop('');
         }
       }, (error) => {
         console.error("Error fetching workshops:", error);
@@ -166,7 +165,7 @@ const App = () => {
       });
       return () => unsubscribe();
     }
-  }, [isAuthReady, userId]); // Depend on isAuthReady and userId
+  }, [isAuthReady, userId]);
 
   // Update newClass.workshopType when selectedWorkshop changes
   useEffect(() => {
@@ -176,7 +175,7 @@ const App = () => {
 
   // Fetch classes when auth is ready, userId is available, and selectedWorkshop changes
   useEffect(() => {
-    if (isAuthReady && userId && selectedWorkshop) { // Only fetch if a workshop is selected
+    if (isAuthReady && userId && selectedWorkshop) {
       const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
       const q = query(sharedClassesCollectionRef, where("workshopType", "==", selectedWorkshop));
 
@@ -200,16 +199,24 @@ const App = () => {
 
       return () => unsubscribe();
     } else if (isAuthReady && userId && !selectedWorkshop) {
-      setClasses([]); // Clear classes if no workshop is selected
+      setClasses([]);
     }
   }, [isAuthReady, userId, selectedWorkshop]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (editingClass) {
-      setEditingClass({ ...editingClass, [name]: value });
+    const currentState = editingClass ? editingClass : newClass;
+    const stateSetter = editingClass ? setEditingClass : setNewClass;
+
+    if (name === 'date') {
+      const weekDays = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      // Correctly handle date parsing to avoid timezone issues.
+      // By creating date as YYYY-MM-DDT00:00:00, it's interpreted in the local timezone.
+      const selectedDate = new Date(`${value}T00:00:00`);
+      const dayOfWeek = weekDays[selectedDate.getDay()];
+      stateSetter({ ...currentState, date: value, dayOfWeek: dayOfWeek });
     } else {
-      setNewClass({ ...newClass, [name]: value });
+      stateSetter({ ...currentState, [name]: value });
     }
   };
 
@@ -225,25 +232,32 @@ const App = () => {
       return;
     }
 
-    if (!newClass.title.trim() && !editingClass?.title.trim()) {
+    const classData = editingClass || newClass;
+
+    if (!classData.title.trim()) {
       setModalMessage("El título de la clase no puede estar vacío.");
       setModalConfirmAction(() => () => setModalMessage(''));
       return;
     }
-    if (!newClass.date.trim() && !editingClass?.date.trim()) {
+    if (!classData.date.trim()) {
       setModalMessage("La fecha de la clase no puede estar vacía.");
       setModalConfirmAction(() => () => setModalMessage(''));
       return;
     }
-    if (!newClass.time.trim() && !editingClass?.time.trim()) {
+    if (!classData.time.trim()) {
       setModalMessage("La hora de la clase no puede estar vacía.");
       setModalConfirmAction(() => () => setModalMessage(''));
       return;
     }
+    if (classData.dayOfWeek === 'Domingo') {
+      setModalMessage("No se pueden añadir clases en Domingo.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+      return;
+    }
+
 
     try {
       const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
-      const classData = editingClass || newClass;
 
       if (editingClass) {
         const classRef = doc(sharedClassesCollectionRef, editingClass.id);
@@ -255,7 +269,7 @@ const App = () => {
           dayOfWeek: classData.dayOfWeek,
           status: classData.status,
           workshopType: classData.workshopType,
-          objectives: classData.objectives || [], // Guardar objetivos
+          objectives: classData.objectives || [],
         });
         setEditingClass(null);
         setModalMessage("Clase actualizada con éxito.");
@@ -268,11 +282,11 @@ const App = () => {
           dayOfWeek: classData.dayOfWeek,
           status: classData.status,
           workshopType: selectedWorkshop,
-          objectives: classData.objectives || [], // Guardar objetivos
+          objectives: classData.objectives || [],
           createdAt: new Date(),
           createdBy: userId,
         });
-        setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop, objectives: [] });
+        setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: '', status: 'Planeada', workshopType: selectedWorkshop, objectives: [] });
         setModalMessage("Clase añadida con éxito.");
       }
       setModalConfirmAction(() => () => setModalMessage(''));
@@ -291,7 +305,7 @@ const App = () => {
 
   const cancelEditing = () => {
     setEditingClass(null);
-    setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop, objectives: [] });
+    setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: '', status: 'Planeada', workshopType: selectedWorkshop, objectives: [] });
   };
 
   const deleteClass = (id) => {
@@ -334,11 +348,9 @@ const App = () => {
       setModalConfirmAction(() => () => setModalMessage(''));
     }
   };
-  
-  // --- Funciones para manejar los objetivos de una clase ---
-  
+
   const handleAddObjective = () => {
-    if (!newObjective.trim()) return; // No añadir objetivos vacíos
+    if (!newObjective.trim()) return;
 
     const newObjectiveItem = { text: newObjective.trim(), completed: false };
 
@@ -347,7 +359,7 @@ const App = () => {
     } else {
       setNewClass(prev => ({ ...prev, objectives: [...prev.objectives, newObjectiveItem] }));
     }
-    setNewObjective(''); // Limpiar el input
+    setNewObjective('');
   };
 
   const handleRemoveObjective = (indexToRemove) => {
@@ -360,11 +372,10 @@ const App = () => {
 
   const handleToggleObjective = async (classId, objectiveIndex) => {
     if (!userId) return;
-    
+
     const classToUpdate = classes.find(c => c.id === classId);
     if (!classToUpdate) return;
 
-    // Crear una copia profunda de los objetivos para no mutar el estado directamente
     const updatedObjectives = JSON.parse(JSON.stringify(classToUpdate.objectives));
     updatedObjectives[objectiveIndex].completed = !updatedObjectives[objectiveIndex].completed;
 
@@ -378,7 +389,6 @@ const App = () => {
     }
   };
 
-  // New functions for workshop management
   const addWorkshop = async () => {
     if (!userId) {
       setModalMessage("No se pudo conectar con la base de datos. Recarga la página.");
@@ -435,44 +445,44 @@ const App = () => {
     });
   };
 
-
-  // --- Calculations for Graphs ---
   const getProgressData = useCallback(() => {
     const totalClasses = classes.length;
     const completedClasses = classes.filter(c => c.status === 'Completada').length;
     const inProgressClasses = classes.filter(c => c.status === 'En Progreso').length;
     const plannedClasses = classes.filter(c => c.status === 'Planeada').length;
 
-    const fridayClasses = classes.filter(c => c.dayOfWeek === 'Viernes');
-    const saturdayClasses = classes.filter(c => c.dayOfWeek === 'Sábado');
-
-    const fridayCompleted = fridayClasses.filter(c => c.status === 'Completada').length;
-    const saturdayCompleted = saturdayClasses.filter(c => c.status === 'Completada').length;
-
     const overallStatusData = [
       { name: 'Completadas', value: completedClasses, color: '#4CAF50' },
       { name: 'En Progreso', value: inProgressClasses, color: '#FFC107' },
       { name: 'Planeadas', value: plannedClasses, color: '#2196F3' },
     ];
+    
+    // --- Dynamic Daily Progress Data ---
+    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const progressByDay = {};
 
-    const dailyProgressData = [
-      {
-        day: 'Viernes',
-        'Clases Planeadas': fridayClasses.length,
-        'Clases Completadas': fridayCompleted,
-      },
-      {
-        day: 'Sábado',
-        'Clases Planeadas': saturdayClasses.length,
-        'Clases Completadas': saturdayCompleted,
-      },
-    ];
+    classes.forEach(c => {
+        if (!progressByDay[c.dayOfWeek]) {
+            progressByDay[c.dayOfWeek] = { 'Clases Planeadas': 0, 'Clases Completadas': 0 };
+        }
+        progressByDay[c.dayOfWeek]['Clases Planeadas']++;
+        if (c.status === 'Completada') {
+            progressByDay[c.dayOfWeek]['Clases Completadas']++;
+        }
+    });
+
+    const dailyProgressData = Object.keys(progressByDay)
+      .map(day => ({
+        day: day,
+        'Clases Planeadas': progressByDay[day]['Clases Planeadas'],
+        'Clases Completadas': progressByDay[day]['Clases Completadas'],
+      }))
+      .sort((a, b) => weekOrder.indexOf(a.day) - weekOrder.indexOf(b.day));
 
     return { overallStatusData, dailyProgressData, totalClasses, completedClasses };
   }, [classes]);
 
   const { overallStatusData, dailyProgressData, totalClasses, completedClasses } = getProgressData();
-
   const progressPercentage = totalClasses > 0 ? ((completedClasses / totalClasses) * 100).toFixed(1) : 0;
 
   const getProgressMessage = () => {
@@ -481,6 +491,14 @@ const App = () => {
     if (completedClasses > 0 && completedClasses < totalClasses) return "¡Vas muy bien! Sigue así.";
     return "Aún hay trabajo por hacer. ¡Ánimo!";
   };
+
+  const getSortedDays = () => {
+    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const presentDays = [...new Set(classes.map(c => c.dayOfWeek))];
+    presentDays.sort((a, b) => weekOrder.indexOf(a) - weekOrder.indexOf(b));
+    return presentDays.filter(day => weekOrder.includes(day)); // Ensure only valid days are shown
+  };
+  const sortedClassDays = getSortedDays();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0">
@@ -500,9 +518,9 @@ const App = () => {
         showCancel={showModalCancel}
       />
 
-      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl */}
+      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
-        <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres de Viernes y Sábado.</p>
+        <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres.</p>
         {userId && (
           <p className="text-xs sm:text-sm text-gray-500 mt-2">
             ID de Sesión Anónima (compartido para identificar tus aportaciones): <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-md text-xs">{userId}</span>
@@ -514,8 +532,7 @@ const App = () => {
       </header>
 
       <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0">
-        {/* Formulario de Añadir/Editar Clase */}
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first relative z-20"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl */}
+        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first relative z-20">
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
             {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop || 'un Taller'}`}
           </h2>
@@ -528,7 +545,7 @@ const App = () => {
                   name="workshopType"
                   value={newClass.workshopType}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
                   {workshops.length === 0 && <option value="">Añade un taller...</option>}
                   {workshops.map(workshop => (
@@ -546,7 +563,7 @@ const App = () => {
                   name="workshopType"
                   value={editingClass.workshopType}
                   readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base" // Adjusted rounded-md to rounded-lg
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base"
                 />
               </div>
             )}
@@ -559,7 +576,7 @@ const App = () => {
                 value={editingClass ? editingClass.title : newClass.title}
                 onChange={handleInputChange}
                 placeholder="Introducir título"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
             <div>
@@ -571,10 +588,9 @@ const App = () => {
                 onChange={handleInputChange}
                 rows="3"
                 placeholder="Detalles sobre la clase..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               ></textarea>
             </div>
-            {/* SECCIÓN DE OBJETIVOS EN EL FORMULARIO */}
             <div>
               <label htmlFor="objective" className="block text-sm font-medium text-gray-700 mb-1">Objetivos de la Clase</label>
               <div className="flex gap-2 mb-2">
@@ -618,10 +634,9 @@ const App = () => {
                 name="date"
                 value={editingClass ? editingClass.date : newClass.date}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
-            {/* New Time Input Field */}
             <div>
               <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
               <input
@@ -630,21 +645,20 @@ const App = () => {
                 name="time"
                 value={editingClass ? editingClass.time : newClass.time}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
               />
             </div>
             <div>
               <label htmlFor="dayOfWeek" className="block text-sm font-medium text-gray-700 mb-1">Día de la Semana</label>
-              <select
+              <input
+                type="text"
                 id="dayOfWeek"
                 name="dayOfWeek"
                 value={editingClass ? editingClass.dayOfWeek : newClass.dayOfWeek}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
-              >
-                <option value="Viernes">Viernes</option>
-                <option value="Sábado">Sábado</option>
-              </select>
+                readOnly
+                placeholder="Se calculará con la fecha"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base"
+              />
             </div>
             {editingClass && (
               <div>
@@ -654,7 +668,7 @@ const App = () => {
                   name="status"
                   value={editingClass.status}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 >
                   <option value="Planeada">Planeada</option>
                   <option value="En Progreso">En Progreso</option>
@@ -665,14 +679,14 @@ const App = () => {
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mt-4 sm:mt-6">
               <button
                 onClick={addOrUpdateClass}
-                className="flex-1 bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-base sm:text-lg" // Adjusted rounded-md to rounded-lg
+                className="flex-1 bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-base sm:text-lg"
               >
                 {editingClass ? 'Guardar Cambios' : 'Añadir Clase'}
               </button>
               {editingClass && (
                 <button
                   onClick={cancelEditing}
-                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg" // Adjusted rounded-md to rounded-lg
+                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg"
                 >
                   Cancelar Edición
                 </button>
@@ -681,9 +695,7 @@ const App = () => {
           </div>
         </section>
 
-        {/* Contenedor para Gráficos y Lista de Clases (Columna 2 en desktop) */}
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 space-y-6 sm:space-y-8 lg:col-span-2 w-full order-2 lg:order-2 relative z-10"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl, added order-2 */}
-          {/* Workshop Selector */}
+        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 space-y-6 sm:space-y-8 lg:col-span-2 w-full order-2 lg:order-2 relative z-10">
           <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
             {workshops.length === 0 ? (
               <p className="text-center text-gray-500 text-sm sm:text-base">Añade talleres en la sección de "Gestión de Talleres".</p>
@@ -692,7 +704,7 @@ const App = () => {
                 <button
                   key={workshop.id}
                   onClick={() => setSelectedWorkshop(workshop.name)}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm sm:text-base transition-all duration-200 ${ // Adjusted rounded-md to rounded-lg
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm sm:text-base transition-all duration-200 ${
                     selectedWorkshop === workshop.name
                       ? 'bg-blue-600 text-white shadow-md'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -704,15 +716,13 @@ const App = () => {
             )}
           </div>
 
-          {/* Sección de Gráficos de Avance */}
-          <div className="space-y-4 sm:space-y-6"> {/* Added space-y for internal spacing */}
+          <div className="space-y-4 sm:space-y-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop || 'Ningún Taller Seleccionado'})</h2>
             <div className="text-center mb-3 sm:mb-4">
               <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{progressPercentage}% Completado</p>
               <p className="text-base sm:text-lg text-gray-700 mt-1 sm:mt-2">{getProgressMessage()}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {/* Gráfico de Estado General */}
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Estado de Clases</h3>
                 <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'pie'}>
@@ -737,7 +747,6 @@ const App = () => {
                 </ResponsiveContainer>
               </div>
 
-              {/* Gráfico de Progreso por Día */}
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Clases por Día</h3>
                 <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'bar'}>
@@ -747,7 +756,7 @@ const App = () => {
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" fontSize={12} />
-                    <YAxis fontSize={12} />
+                    <YAxis fontSize={12} allowDecimals={false} />
                     <Tooltip />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
                     <Bar dataKey="Clases Planeadas" fill="#2196F3" radius={[8, 8, 0, 0]} />
@@ -758,14 +767,13 @@ const App = () => {
             </div>
           </div>
 
-          {/* Lista de Clases */}
-          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl */}
+          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Mis Clases de {selectedWorkshop || 'Ningún Taller Seleccionado'}</h2>
             {classes.length === 0 ? (
               <p className="text-center text-gray-500 py-6 sm:py-8 text-base sm:text-lg">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
             ) : (
               <div className="space-y-4 sm:space-y-6">
-                {['Viernes', 'Sábado'].map(day => (
+                {sortedClassDays.map(day => (
                   <div key={day}>
                     <h3 className="text-lg sm:text-xl font-bold text-blue-500 mb-3 sm:mb-4 border-b-2 border-blue-200 pb-1.5 sm:pb-2">{day}</h3>
                     {classes.filter(c => c.dayOfWeek === day).length === 0 ? (
@@ -789,13 +797,10 @@ const App = () => {
                               </span>
                             </div>
                             <p className="text-sm text-gray-600 mb-1.5 sm:mb-2">{cls.description || 'Sin descripción.'}</p>
-                            {/* Display date and time */}
                             <p className="text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3">Fecha: {cls.date} {cls.time ? `(${cls.time})` : ''}</p>
-                            {/* Mostrar quién creó la clase */}
                             {cls.createdBy && (
                               <p className="text-xs text-gray-400 mb-2 sm:mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
                             )}
-                            {/* LISTA DE OBJETIVOS MARBABLES */}
                             {cls.objectives && cls.objectives.length > 0 && (
                               <div className="mt-3 border-t pt-3">
                                 <h5 className="text-sm font-semibold text-gray-700 mb-2">Objetivos:</h5>
@@ -823,20 +828,20 @@ const App = () => {
                             <div className="flex flex-wrap gap-2 mt-4">
                               <button
                                 onClick={() => startEditing(cls)}
-                                className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
+                                className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
                               >
                                 Editar
                               </button>
                               <button
                                 onClick={() => deleteClass(cls.id)}
-                                className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
+                                className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
                               >
                                 Eliminar
                               </button>
                               <select
                                 value={cls.status}
                                 onChange={(e) => updateClassStatus(cls.id, e.target.value)}
-                                className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
+                                className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
                               >
                                 <option value="Planeada">Planeada</option>
                                 <option value="En Progreso">En Progreso</option>
@@ -854,8 +859,7 @@ const App = () => {
           </div>
         </section>
 
-        {/* Sección de Gestión de Talleres (Columna 3 en desktop) */}
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full order-last lg:order-3 relative z-10"> {/* Adjusted rounded-xl to rounded-2xl, shadow-lg to shadow-xl, added order-last lg:order-3 */}
+        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full order-last lg:order-3 relative z-10">
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
           <div className="space-y-4">
             <div>
@@ -868,11 +872,11 @@ const App = () => {
                   value={newWorkshopName}
                   onChange={(e) => setNewWorkshopName(e.target.value)}
                   placeholder="Ej. Taller de Música"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
                 />
                 <button
                   onClick={addWorkshop}
-                  className="bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 text-base sm:text-lg" // Adjusted rounded-md to rounded-lg
+                  className="bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 text-base sm:text-lg"
                 >
                   Añadir Taller
                 </button>
@@ -886,11 +890,11 @@ const App = () => {
               ) : (
                 <ul className="space-y-2">
                   {workshops.map(workshop => (
-                    <li key={workshop.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200"> {/* Adjusted rounded-md to rounded-lg */}
+                    <li key={workshop.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
                       <span className="text-base text-gray-800">{workshop.name}</span>
                       <button
                         onClick={() => deleteWorkshop(workshop.id, workshop.name)}
-                        className="px-3 py-1 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
+                        className="px-3 py-1 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
                       >
                         Eliminar
                       </button>
