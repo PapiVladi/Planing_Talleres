@@ -587,55 +587,55 @@ const App = () => {
   
   const PrintableWeek = ({ week, workshopName }) => {
     return (
-      <div className="print-section">
-          <header className="print-header">
-            <h1>Plan de Clases: {workshopName}</h1>
-            <h2>{week.label}</h2>
-          </header>
-          <div className="days-wrapper">
+      <div className="font-sans">
+          <div className="p-4 bg-gray-100 border-b-2 border-black mb-5">
+            <h1 className="text-2xl font-bold text-black">Plan de Clases: {workshopName}</h1>
+            <h2 className="text-lg text-gray-700">{week.label}</h2>
+          </div>
+          <div className="px-4">
               {week.sortedDays.map(day => (
-                 <div key={day} className="day-container">
-                    <h3 className="day-title">{day}</h3>
-                    <div className="classes-container">
+                 <div key={day} className="mb-6" style={{ pageBreakInside: 'avoid' }}>
+                    <h3 className="text-xl font-bold text-black border-b border-gray-400 pb-2 mb-4">{day}</h3>
+                    <div className="space-y-4">
                       {week.days[day].map(cls => (
-                        <div key={cls.id} className="class-card-printable">
-                           <div className="class-header-printable">
-                             <h4>{cls.title}</h4>
-                             <span>{cls.date} ({cls.time}) | {cls.status}</span>
+                        <div key={cls.id} className="border border-gray-300 p-4" style={{ pageBreakInside: 'avoid' }}>
+                           <div className="border-b border-gray-200 pb-2 mb-2">
+                             <h4 className="text-lg font-bold text-black">{cls.title}</h4>
+                             <p className="text-sm text-gray-600">{cls.date} ({cls.time}) | {cls.status}</p>
                            </div>
                            
-                           <table className="details-table">
+                           <table className="w-full text-sm">
                             <tbody>
-                              <tr>
-                                <td className="label-cell">Propósito:</td>
-                                <td className="content-cell">{cls.purpose || '-'}</td>
+                              <tr className="border-b border-gray-200">
+                                <td className="font-bold align-top py-2 pr-2 w-28">Propósito:</td>
+                                <td className="py-2">{cls.purpose || '-'}</td>
                               </tr>
-                              <tr>
-                                <td className="label-cell">Inicio:</td>
-                                <td className="content-cell">{cls.activity_start || '-'}</td>
+                              <tr className="border-b border-gray-200">
+                                <td className="font-bold align-top py-2 pr-2">Inicio:</td>
+                                <td className="py-2">{cls.activity_start || '-'}</td>
                               </tr>
-                              <tr>
-                                <td className="label-cell">Desarrollo:</td>
-                                <td className="content-cell">{cls.activity_main || '-'}</td>
+                              <tr className="border-b border-gray-200">
+                                <td className="font-bold align-top py-2 pr-2">Desarrollo:</td>
+                                <td className="py-2">{cls.activity_main || '-'}</td>
                               </tr>
-                              <tr>
-                                <td className="label-cell">Cierre:</td>
-                                <td className="content-cell">{cls.activity_end || '-'}</td>
+                              <tr className="border-b border-gray-200">
+                                <td className="font-bold align-top py-2 pr-2">Cierre:</td>
+                                <td className="py-2">{cls.activity_end || '-'}</td>
                               </tr>
                                <tr>
-                                <td className="label-cell">Recursos:</td>
-                                <td className="content-cell">{cls.resources || '-'}</td>
+                                <td className="font-bold align-top py-2 pr-2">Recursos:</td>
+                                <td className="py-2">{cls.resources || '-'}</td>
                               </tr>
                             </tbody>
                            </table>
 
                            {cls.objectives && cls.objectives.length > 0 && (
-                             <div className="checklist-section">
-                               <strong>Checklist de Tareas</strong>
-                               <ul>
+                             <div className="mt-3 pt-3 border-t border-gray-200">
+                               <strong className="text-base">Checklist de Tareas</strong>
+                               <ul className="list-none p-0 mt-1">
                                  {cls.objectives.map((obj, index) => (
-                                   <li key={index}>
-                                     <span className="checkbox">{obj.completed ? '☑' : '☐'}</span> {obj.text}
+                                   <li key={index} className="text-sm">
+                                     <span className="inline-block mr-2 text-lg">{obj.completed ? '☑' : '☐'}</span> {obj.text}
                                    </li>
                                  ))}
                                </ul>
@@ -651,132 +651,13 @@ const App = () => {
     );
   };
   
-  const PrintStyles = () => (
-    <style>{`
-      @media print {
-        @page {
-          size: A4;
-          margin: 15mm;
-        }
-        body {
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        body * {
-          visibility: hidden;
-          font-family: Arial, sans-serif;
-          line-height: 1.4;
-        }
-        .print-section, .print-section * {
-          visibility: visible;
-        }
-        .print-section {
-          position: absolute;
-          left: 0;
-          top: 0;
-          right: 0;
-          width: 100%;
-        }
-        .print-header {
-          margin-bottom: 20px;
-          border-bottom: 2px solid #333;
-          padding-bottom: 10px;
-        }
-        .print-header h1 {
-          font-size: 16pt;
-          margin: 0;
-          color: #000;
-        }
-        .print-header h2 {
-          font-size: 12pt;
-          margin: 0;
-          font-weight: normal;
-          color: #333;
-        }
-        .day-title {
-          font-size: 14pt;
-          color: #000;
-          border-bottom: 1px solid #999;
-          padding-bottom: 5px;
-          margin-top: 20px;
-          margin-bottom: 15px;
-        }
-        .class-card-printable {
-          border: 1px solid #ccc;
-          padding: 12px;
-          margin-bottom: 15px;
-          page-break-inside: avoid;
-        }
-        .class-header-printable {
-          border-bottom: 1px solid #eee;
-          padding-bottom: 8px;
-          margin-bottom: 8px;
-        }
-        .class-header-printable h4 {
-          font-size: 12pt;
-          font-weight: bold;
-          margin: 0;
-          color: #000;
-        }
-        .class-header-printable span {
-          font-size: 9pt;
-          color: #555;
-        }
-        .details-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 10pt;
-        }
-        .details-table tr {
-          border-bottom: 1px solid #f0f0f0;
-        }
-        .details-table tr:last-child {
-          border-bottom: none;
-        }
-        .details-table td {
-          padding: 6px;
-          vertical-align: top;
-        }
-        .label-cell {
-          font-weight: bold;
-          width: 100px; /* Fixed width for labels */
-        }
-        .content-cell {
-          color: #333;
-        }
-        .checklist-section {
-          margin-top: 10px;
-          border-top: 1px solid #eee;
-          padding-top: 8px;
-          font-size: 10pt;
-        }
-        .checklist-section strong {
-          font-size: 11pt;
-        }
-        .checklist-section ul {
-          list-style: none;
-          padding-left: 0;
-          margin: 4px 0 0 0;
-        }
-        .checkbox {
-          font-size: 12pt;
-          line-height: 1;
-        }
-        .no-print {
-          display: none !important;
-        }
-      }
-    `}</style>
-  );
-  
   if (printingWeekId) {
     const weekToPrint = groupedClasses.find(w => w.id === printingWeekId);
     return weekToPrint ? <PrintableWeek week={weekToPrint} workshopName={selectedWorkshop} /> : null;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0">
-      <PrintStyles />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0 print:hidden">
       <CustomModal
         message={modalMessage}
         onConfirm={() => {
@@ -793,7 +674,7 @@ const App = () => {
         showCancel={showModalCancel}
       />
 
-      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10 no-print">
+      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
         <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres.</p>
         {userId && (
@@ -806,7 +687,7 @@ const App = () => {
         )}
       </header>
 
-      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0 no-print">
+      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0">
         <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first relative z-20">
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
             {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop || 'un Taller'}`}
@@ -1109,7 +990,7 @@ const App = () => {
                   <div key={week.id}>
                     <div className="flex justify-between items-center mb-4 bg-purple-50 p-3 rounded-lg shadow-sm">
                       <h3 className="text-xl font-bold text-purple-600">{week.label}</h3>
-                      <button onClick={() => handlePrintWeek(week.id)} title="Imprimir o Guardar Semana como PDF" className="p-2 hover:bg-purple-200 rounded-full transition-colors no-print">
+                      <button onClick={() => handlePrintWeek(week.id)} title="Imprimir o Guardar Semana como PDF" className="p-2 hover:bg-purple-200 rounded-full transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                         </svg>
