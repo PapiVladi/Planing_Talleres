@@ -500,17 +500,33 @@ const App = () => {
   // --- Helper function to get week identifier ---
   const getWeekIdentifier = (dateString) => {
     const date = new Date(`${dateString}T00:00:00`);
-    const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday...
+    
+    // Get ISO week number
+    const tempDate = new Date(date.valueOf());
+    const dayNum = (date.getDay() + 6) % 7;
+    tempDate.setDate(tempDate.getDate() - dayNum + 3);
+    const firstThursday = tempDate.valueOf();
+    tempDate.setMonth(0, 1);
+    if (tempDate.getDay() !== 4) {
+      tempDate.setMonth(0, 1 + ((4 - tempDate.getDay()) + 7) % 7);
+    }
+    const weekNo = 1 + Math.ceil((firstThursday - tempDate) / 604800000);
+
+    // Get Monday and Saturday of the week
     const firstDayOfWeek = new Date(date);
-    // Adjust to Monday
+    const dayOfWeek = date.getDay();
     firstDayOfWeek.setDate(date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
     
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    const formattedDate = firstDayOfWeek.toLocaleDateString('es-MX', options);
+    const lastDayOfWeek = new Date(firstDayOfWeek);
+    lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 5);
+
+    const formatOptions = { month: 'short', day: 'numeric' };
+    const firstDayFormatted = firstDayOfWeek.toLocaleDateString('es-MX', formatOptions);
+    const lastDayFormatted = lastDayOfWeek.toLocaleDateString('es-MX', { ...formatOptions, year: 'numeric' });
 
     return {
         id: firstDayOfWeek.toISOString().split('T')[0], // YYYY-MM-DD for stable sorting
-        label: `Semana del ${formattedDate}`
+        label: `Semana ${weekNo} (del ${firstDayFormatted} al ${lastDayFormatted})`
     };
   };
 
@@ -888,8 +904,8 @@ const App = () => {
               <div className="space-y-6">
                 {groupedClasses.map(week => (
                   <div key={week.id}>
-                    <h3 className="text-lg sm:text-xl font-bold text-purple-600 mb-4 bg-purple-50 p-2 rounded-lg">{week.label}</h3>
-                    <div className="space-y-4 sm:space-y-6 ml-2 sm:ml-4">
+                    <h3 className="text-xl font-bold text-purple-600 mb-4 bg-purple-50 p-3 rounded-lg shadow-sm">{week.label}</h3>
+                    <div className="space-y-4 sm:space-y-6 ml-2 sm:ml-4 pl-4 border-l-2 border-purple-200">
                       {week.sortedDays.map(day => (
                          <div key={day}>
                             <h4 className="text-lg sm:text-xl font-bold text-blue-500 mb-3 border-b-2 border-blue-200 pb-1.5">{day}</h4>
