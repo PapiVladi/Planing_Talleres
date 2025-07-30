@@ -79,7 +79,7 @@ const CustomModal = ({ message, onConfirm, onCancel, showCancel = false }) => {
   if (!message) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4 no-print">
       <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full">
         <p className="text-lg font-semibold text-gray-800 mb-4 text-center">{message}</p>
         <div className="flex justify-center space-x-4">
@@ -133,6 +133,7 @@ const App = () => {
   const [modalConfirmAction, setModalConfirmAction] = useState(null);
   const [showModalCancel, setShowModalCancel] = useState(false);
   const [newObjective, setNewObjective] = useState('');
+  const [printingWeekId, setPrintingWeekId] = useState(null);
 
   // Authentication and Firestore Initialization
   useEffect(() => {
@@ -497,11 +498,9 @@ const App = () => {
     return { overallStatusData, dailyProgressData, totalClasses, completedClasses };
   }, [classes]);
   
-  // --- Helper function to get week identifier ---
   const getWeekIdentifier = (dateString) => {
     const date = new Date(`${dateString}T00:00:00`);
     
-    // Get ISO week number
     const tempDate = new Date(date.valueOf());
     const dayNum = (date.getDay() + 6) % 7;
     tempDate.setDate(tempDate.getDate() - dayNum + 3);
@@ -512,7 +511,6 @@ const App = () => {
     }
     const weekNo = 1 + Math.ceil((firstThursday - tempDate) / 604800000);
 
-    // Get Monday and Saturday of the week
     const firstDayOfWeek = new Date(date);
     const dayOfWeek = date.getDay();
     firstDayOfWeek.setDate(date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
@@ -525,12 +523,11 @@ const App = () => {
     const lastDayFormatted = lastDayOfWeek.toLocaleDateString('es-MX', { ...formatOptions, year: 'numeric' });
 
     return {
-        id: firstDayOfWeek.toISOString().split('T')[0], // YYYY-MM-DD for stable sorting
+        id: firstDayOfWeek.toISOString().split('T')[0],
         label: `Semana ${weekNo} (del ${firstDayFormatted} al ${lastDayFormatted})`
     };
   };
 
-  // --- Group classes by week and then by day ---
   const getGroupedClasses = () => {
       if (classes.length === 0) return [];
       
@@ -548,16 +545,32 @@ const App = () => {
           return acc;
       }, {});
       
-      // Sort days within each week
       Object.values(grouped).forEach(week => {
           week.sortedDays = Object.keys(week.days).sort((a, b) => weekOrder.indexOf(a) - weekOrder.indexOf(b));
       });
       
-      // Sort weeks chronologically and return as an array
       return Object.entries(grouped)
         .sort(([weekIdA], [weekIdB]) => weekIdA.localeCompare(weekIdB))
         .map(([id, data]) => ({ id, ...data }));
   };
+
+  const handlePrintWeek = (weekId) => {
+    setPrintingWeekId(weekId);
+    setTimeout(() => {
+        window.print();
+    }, 100);
+  };
+  
+  useEffect(() => {
+    const afterPrint = () => {
+      setPrintingWeekId(null);
+    };
+    window.addEventListener('afterprint', afterPrint);
+    return () => {
+      window.removeEventListener('afterprint', afterPrint);
+    };
+  }, []);
+
 
   const { overallStatusData, dailyProgressData, totalClasses, completedClasses } = getProgressData();
   const progressPercentage = totalClasses > 0 ? ((completedClasses / totalClasses) * 100).toFixed(1) : 0;
@@ -571,9 +584,96 @@ const App = () => {
   };
 
   const currentFormData = editingClass || newClass;
+  
+  const PrintableWeek = ({ week }) => {
+    return (
+      <div className="print-section">
+          <h3 className="printable-week-title text-2xl font-bold mb-4">{week.label}</h3>
+          <div className="space-y-6">
+              {week.sortedDays.map(day => (
+                 <div key={day} className="mb-6">
+                    <h4 className="printable-day-title text-xl font-bold mb-3">{day}</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      {week.days[day].map(cls => (
+                        <div key={cls.id} className="printable-card p-4">
+                           <div className="flex justify-between items-start mb-2">
+                             <h5 className="text-lg font-bold">{cls.title}</h5>
+                             <span className="text-sm font-medium">{cls.status}</span>
+                           </div>
+                           <div className='text-sm text-gray-700 mb-3'>
+                               <span className='font-semibold'>{cls.date}</span> {cls.time ? `(${cls.time})` : ''}
+                           </div>
+                           {cls.purpose && <div className="mt-2"><strong className='font-semibold'>Propósito:</strong> {cls.purpose}</div>}
+                           {cls.activity_start && <div className="mt-2"><strong className='font-semibold'>Inicio:</strong> {cls.activity_start}</div>}
+                           {cls.activity_main && <div className="mt-2"><strong className='font-semibold'>Desarrollo:</strong> {cls.activity_main}</div>}
+                           {cls.activity_end && <div className="mt-2"><strong className='font-semibold'>Cierre:</strong> {cls.activity_end}</div>}
+                           {cls.resources && <div className="mt-2"><strong className='font-semibold'>Recursos:</strong> {cls.resources}</div>}
+                           {cls.objectives && cls.objectives.length > 0 && (
+                             <div className="mt-3">
+                               <h5 className="font-semibold">Checklist de Tareas:</h5>
+                               <ul className="list-disc list-inside">
+                                 {cls.objectives.map((obj, index) => (
+                                   <li key={index} className={obj.completed ? 'line-through' : ''}>
+                                     {obj.text}
+                                   </li>
+                                 ))}
+                               </ul>
+                             </div>
+                           )}
+                        </div>
+                      ))}
+                    </div>
+                 </div>
+              ))}
+          </div>
+      </div>
+    );
+  };
+  
+  const PrintStyles = () => (
+    <style>{`
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        .print-section, .print-section * {
+          visibility: visible;
+        }
+        .print-section {
+          position: absolute;
+          left: 20px;
+          top: 20px;
+          right: 20px;
+          width: auto;
+        }
+        .printable-card {
+          page-break-inside: avoid;
+          border: 1px solid #ccc !important;
+          box-shadow: none !important;
+        }
+        .printable-week-title, .printable-day-title {
+          color: #000 !important;
+          background: none !important;
+          border-bottom: 2px solid #ccc !important;
+          padding-bottom: 8px !important;
+          margin-bottom: 16px !important;
+          box-shadow: none !important;
+        }
+        .no-print {
+          display: none !important;
+        }
+      }
+    `}</style>
+  );
+  
+  if (printingWeekId) {
+    const weekToPrint = groupedClasses.find(w => w.id === printingWeekId);
+    return weekToPrint ? <PrintableWeek week={weekToPrint} /> : null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0">
+      <PrintStyles />
       <CustomModal
         message={modalMessage}
         onConfirm={() => {
@@ -590,7 +690,7 @@ const App = () => {
         showCancel={showModalCancel}
       />
 
-      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10">
+      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10 no-print">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
         <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres.</p>
         {userId && (
@@ -603,7 +703,7 @@ const App = () => {
         )}
       </header>
 
-      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0">
+      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0 no-print">
         <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first relative z-20">
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
             {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop || 'un Taller'}`}
@@ -824,7 +924,7 @@ const App = () => {
           </div>
         </section>
 
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 space-y-6 sm:space-y-8 lg:col-span-2 w-full order-2 lg:order-2 relative z-10">
+        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 space-y-6 sm:space-y-8 lg:col-span-2 w-full order-2 lg:order-2">
           <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
             {workshops.length === 0 ? (
               <p className="text-center text-gray-500 text-sm sm:text-base">Añade talleres en la sección de "Gestión de Talleres".</p>
@@ -904,7 +1004,14 @@ const App = () => {
               <div className="space-y-6">
                 {groupedClasses.map(week => (
                   <div key={week.id}>
-                    <h3 className="text-xl font-bold text-purple-600 mb-4 bg-purple-50 p-3 rounded-lg shadow-sm">{week.label}</h3>
+                    <div className="flex justify-between items-center mb-4 bg-purple-50 p-3 rounded-lg shadow-sm">
+                      <h3 className="text-xl font-bold text-purple-600">{week.label}</h3>
+                      <button onClick={() => handlePrintWeek(week.id)} title="Imprimir o Guardar Semana como PDF" className="p-2 hover:bg-purple-200 rounded-full transition-colors no-print">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                      </button>
+                    </div>
                     <div className="space-y-4 sm:space-y-6 ml-2 sm:ml-4 pl-4 border-l-2 border-purple-200">
                       {week.sortedDays.map(day => (
                          <div key={day}>
@@ -972,7 +1079,7 @@ const App = () => {
                                     </div>
                                   )}
 
-                                  <div className="flex flex-wrap gap-2 mt-4 border-t pt-3">
+                                  <div className="flex flex-wrap gap-2 mt-4 border-t pt-3 no-print">
                                     <button
                                       onClick={() => startEditing(cls)}
                                       className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
@@ -1008,7 +1115,7 @@ const App = () => {
           </div>
         </section>
 
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full order-last lg:order-3 relative z-10">
+        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full order-last lg:order-3">
           <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
           <div className="space-y-4">
             <div>
