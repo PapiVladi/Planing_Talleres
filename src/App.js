@@ -585,36 +585,64 @@ const App = () => {
 
   const currentFormData = editingClass || newClass;
   
-  const PrintableWeek = ({ week }) => {
+  const PrintableWeek = ({ week, workshopName }) => {
     return (
       <div className="print-section">
-          <h3 className="printable-week-title text-2xl font-bold mb-4">{week.label}</h3>
+          <header className="print-header">
+            <h1>Plan de Clases: {workshopName}</h1>
+            <h2>{week.label}</h2>
+          </header>
           <div className="space-y-6">
               {week.sortedDays.map(day => (
-                 <div key={day} className="mb-6">
-                    <h4 className="printable-day-title text-xl font-bold mb-3">{day}</h4>
-                    <div className="grid grid-cols-1 gap-4">
+                 <div key={day} className="day-container">
+                    <h3 className="day-title">{day}</h3>
+                    <div className="classes-container">
                       {week.days[day].map(cls => (
-                        <div key={cls.id} className="printable-card p-4">
-                           <div className="flex justify-between items-start mb-2">
-                             <h5 className="text-lg font-bold">{cls.title}</h5>
-                             <span className="text-sm font-medium">{cls.status}</span>
+                        <div key={cls.id} className="class-card-printable">
+                           <div className="class-header-printable">
+                             <h4 className="class-title-printable">{cls.title}</h4>
+                             <span className="class-status-printable">{cls.status}</span>
                            </div>
-                           <div className='text-sm text-gray-700 mb-3'>
-                               <span className='font-semibold'>{cls.date}</span> {cls.time ? `(${cls.time})` : ''}
-                           </div>
-                           {cls.purpose && <div className="mt-2"><strong className='font-semibold'>Propósito:</strong> {cls.purpose}</div>}
-                           {cls.activity_start && <div className="mt-2"><strong className='font-semibold'>Inicio:</strong> {cls.activity_start}</div>}
-                           {cls.activity_main && <div className="mt-2"><strong className='font-semibold'>Desarrollo:</strong> {cls.activity_main}</div>}
-                           {cls.activity_end && <div className="mt-2"><strong className='font-semibold'>Cierre:</strong> {cls.activity_end}</div>}
-                           {cls.resources && <div className="mt-2"><strong className='font-semibold'>Recursos:</strong> {cls.resources}</div>}
+                           <p className='class-meta-printable'>{cls.date} ({cls.time})</p>
+                           
+                           <table className="pedagogy-table">
+                            <tbody>
+                              <tr>
+                                <td>
+                                  <strong>Propósito:</strong>
+                                  <p>{cls.purpose || 'N/A'}</p>
+                                </td>
+                                <td>
+                                  <strong>Inicio:</strong>
+                                  <p>{cls.activity_start || 'N/A'}</p>
+                                </td>
+                              </tr>
+                               <tr>
+                                <td>
+                                  <strong>Recursos:</strong>
+                                  <p>{cls.resources || 'N/A'}</p>
+                                </td>
+                                <td>
+                                  <strong>Desarrollo:</strong>
+                                  <p>{cls.activity_main || 'N/A'}</p>
+                                </td>
+                              </tr>
+                               <tr>
+                                <td colSpan="2">
+                                  <strong>Cierre:</strong>
+                                  <p>{cls.activity_end || 'N/A'}</p>
+                                </td>
+                              </tr>
+                            </tbody>
+                           </table>
+
                            {cls.objectives && cls.objectives.length > 0 && (
-                             <div className="mt-3">
-                               <h5 className="font-semibold">Checklist de Tareas:</h5>
-                               <ul className="list-disc list-inside">
+                             <div className="checklist-section">
+                               <strong>Checklist de Tareas</strong>
+                               <ul>
                                  {cls.objectives.map((obj, index) => (
-                                   <li key={index} className={obj.completed ? 'line-through' : ''}>
-                                     {obj.text}
+                                   <li key={index}>
+                                     <span className="checkbox">{obj.completed ? '☑' : '☐'}</span> {obj.text}
                                    </li>
                                  ))}
                                </ul>
@@ -633,31 +661,112 @@ const App = () => {
   const PrintStyles = () => (
     <style>{`
       @media print {
+        @page {
+          size: A4;
+          margin: 20mm;
+        }
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
         body * {
           visibility: hidden;
+          font-family: Arial, sans-serif;
         }
         .print-section, .print-section * {
           visibility: visible;
         }
         .print-section {
           position: absolute;
-          left: 20px;
-          top: 20px;
-          right: 20px;
-          width: auto;
+          left: 0;
+          top: 0;
+          right: 0;
+          width: 100%;
         }
-        .printable-card {
+        .print-header {
+          background-color: #f2f2f2 !important;
+          padding: 12px;
+          border-bottom: 2px solid #333;
+          margin-bottom: 20px;
+        }
+        .print-header h1 {
+          font-size: 18pt;
+          margin: 0;
+        }
+        .print-header h2 {
+          font-size: 14pt;
+          margin: 0;
+          font-weight: normal;
+        }
+        .day-container {
           page-break-inside: avoid;
-          border: 1px solid #ccc !important;
-          box-shadow: none !important;
         }
-        .printable-week-title, .printable-day-title {
-          color: #000 !important;
-          background: none !important;
-          border-bottom: 2px solid #ccc !important;
-          padding-bottom: 8px !important;
-          margin-bottom: 16px !important;
-          box-shadow: none !important;
+        .day-title {
+          font-size: 16pt;
+          border-bottom: 1px solid #ccc;
+          padding-bottom: 5px;
+          margin-bottom: 10px;
+        }
+        .class-card-printable {
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          padding: 12px;
+          margin-bottom: 15px;
+          page-break-inside: avoid;
+        }
+        .class-header-printable {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+        .class-title-printable {
+          font-size: 14pt;
+          font-weight: bold;
+          margin: 0;
+        }
+        .class-status-printable {
+          font-size: 10pt;
+          background-color: #eee !important;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+        .class-meta-printable {
+          font-size: 10pt;
+          color: #555;
+          margin: 4px 0 12px 0;
+        }
+        .pedagogy-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 12px;
+          font-size: 11pt;
+        }
+        .pedagogy-table td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          vertical-align: top;
+          width: 50%;
+        }
+        .pedagogy-table td p {
+          margin: 2px 0 0 0;
+        }
+        .checklist-section {
+          margin-top: 12px;
+          border-top: 1px solid #eee;
+          padding-top: 8px;
+          font-size: 11pt;
+        }
+        .checklist-section ul {
+          list-style: none;
+          padding-left: 0;
+          margin: 4px 0 0 0;
+        }
+        .checklist-section li {
+          margin-bottom: 2px;
+        }
+        .checkbox {
+          font-size: 14pt;
+          line-height: 1;
         }
         .no-print {
           display: none !important;
@@ -668,7 +777,7 @@ const App = () => {
   
   if (printingWeekId) {
     const weekToPrint = groupedClasses.find(w => w.id === printingWeekId);
-    return weekToPrint ? <PrintableWeek week={weekToPrint} /> : null;
+    return weekToPrint ? <PrintableWeek week={weekToPrint} workshopName={selectedWorkshop} /> : null;
   }
 
   return (
