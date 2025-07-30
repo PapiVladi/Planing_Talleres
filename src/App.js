@@ -112,11 +112,12 @@ const App = () => {
   const [workshops, setWorkshops] = useState([]); // New state for workshops
   const [newWorkshopName, setNewWorkshopName] = useState(''); // New state for new workshop input
   const [selectedWorkshop, setSelectedWorkshop] = useState(''); // Default will be set after fetching workshops
-  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: '' }); // workshopType will be set dynamically
+  const [newClass, setNewClass] = useState({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: '', objectives: [] }); // workshopType will be set dynamically
   const [editingClass, setEditingClass] = useState(null);
   const [modalMessage, setModalMessage] = useState('');
   const [modalConfirmAction, setModalConfirmAction] = useState(null);
   const [showModalCancel, setShowModalCancel] = useState(false);
+  const [newObjective, setNewObjective] = useState(''); // Estado para el input del nuevo objetivo
 
   // Authentication and Firestore Initialization
   useEffect(() => {
@@ -242,37 +243,40 @@ const App = () => {
 
     try {
       const sharedClassesCollectionRef = collection(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`);
+      const classData = editingClass || newClass;
 
       if (editingClass) {
         const classRef = doc(sharedClassesCollectionRef, editingClass.id);
         await updateDoc(classRef, {
-          title: editingClass.title,
-          description: editingClass.description,
-          date: new Date(editingClass.date),
-          time: editingClass.time,
-          dayOfWeek: editingClass.dayOfWeek,
-          status: editingClass.status,
-          workshopType: editingClass.workshopType, // Keep original workshopType for editing
+          title: classData.title,
+          description: classData.description,
+          date: new Date(classData.date),
+          time: classData.time,
+          dayOfWeek: classData.dayOfWeek,
+          status: classData.status,
+          workshopType: classData.workshopType,
+          objectives: classData.objectives || [], // Guardar objetivos
         });
         setEditingClass(null);
         setModalMessage("Clase actualizada con éxito.");
-        setModalConfirmAction(() => () => setModalMessage(''));
       } else {
         await addDoc(sharedClassesCollectionRef, {
-          title: newClass.title,
-          description: newClass.description,
-          date: new Date(newClass.date),
-          time: newClass.time,
-          dayOfWeek: newClass.dayOfWeek,
-          status: newClass.status,
-          workshopType: selectedWorkshop, // Use currently selected workshop
+          title: classData.title,
+          description: classData.description,
+          date: new Date(classData.date),
+          time: classData.time,
+          dayOfWeek: classData.dayOfWeek,
+          status: classData.status,
+          workshopType: selectedWorkshop,
+          objectives: classData.objectives || [], // Guardar objetivos
           createdAt: new Date(),
           createdBy: userId,
         });
-        setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop });
+        setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop, objectives: [] });
         setModalMessage("Clase añadida con éxito.");
-        setModalConfirmAction(() => () => setModalMessage(''));
       }
+      setModalConfirmAction(() => () => setModalMessage(''));
+
     } catch (e) {
       console.error("Error adding/updating document: ", e);
       setModalMessage("Error al guardar la clase. Intenta de nuevo.");
@@ -281,13 +285,13 @@ const App = () => {
   };
 
   const startEditing = (classToEdit) => {
-    setEditingClass({ ...classToEdit, time: classToEdit.time || '' });
+    setEditingClass({ ...classToEdit, time: classToEdit.time || '', objectives: classToEdit.objectives || [] });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const cancelEditing = () => {
     setEditingClass(null);
-    setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop });
+    setNewClass({ title: '', description: '', date: '', time: '', dayOfWeek: 'Viernes', status: 'Planeada', workshopType: selectedWorkshop, objectives: [] });
   };
 
   const deleteClass = (id) => {
@@ -327,6 +331,49 @@ const App = () => {
     } catch (e) {
       console.error("Error updating status: ", e);
       setModalMessage("Error al actualizar el estado. Intenta de nuevo.");
+      setModalConfirmAction(() => () => setModalMessage(''));
+    }
+  };
+  
+  // --- Funciones para manejar los objetivos de una clase ---
+  
+  const handleAddObjective = () => {
+    if (!newObjective.trim()) return; // No añadir objetivos vacíos
+
+    const newObjectiveItem = { text: newObjective.trim(), completed: false };
+
+    if (editingClass) {
+      setEditingClass(prev => ({ ...prev, objectives: [...prev.objectives, newObjectiveItem] }));
+    } else {
+      setNewClass(prev => ({ ...prev, objectives: [...prev.objectives, newObjectiveItem] }));
+    }
+    setNewObjective(''); // Limpiar el input
+  };
+
+  const handleRemoveObjective = (indexToRemove) => {
+    if (editingClass) {
+      setEditingClass(prev => ({ ...prev, objectives: prev.objectives.filter((_, index) => index !== indexToRemove) }));
+    } else {
+      setNewClass(prev => ({ ...prev, objectives: prev.objectives.filter((_, index) => index !== indexToRemove) }));
+    }
+  };
+
+  const handleToggleObjective = async (classId, objectiveIndex) => {
+    if (!userId) return;
+    
+    const classToUpdate = classes.find(c => c.id === classId);
+    if (!classToUpdate) return;
+
+    // Crear una copia profunda de los objetivos para no mutar el estado directamente
+    const updatedObjectives = JSON.parse(JSON.stringify(classToUpdate.objectives));
+    updatedObjectives[objectiveIndex].completed = !updatedObjectives[objectiveIndex].completed;
+
+    try {
+      const classRef = doc(db, `artifacts/${APP_IDENTIFIER}/public/data/classes`, classId);
+      await updateDoc(classRef, { objectives: updatedObjectives });
+    } catch (e) {
+      console.error("Error toggling objective status: ", e);
+      setModalMessage("Error al actualizar el objetivo. Intenta de nuevo.");
       setModalConfirmAction(() => () => setModalMessage(''));
     }
   };
@@ -527,6 +574,42 @@ const App = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out" // Adjusted rounded-md to rounded-lg
               ></textarea>
             </div>
+            {/* SECCIÓN DE OBJETIVOS EN EL FORMULARIO */}
+            <div>
+              <label htmlFor="objective" className="block text-sm font-medium text-gray-700 mb-1">Objetivos de la Clase</label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  id="objective"
+                  value={newObjective}
+                  onChange={(e) => setNewObjective(e.target.value)}
+                  placeholder="Escribe un objetivo y añádelo"
+                  className="flex-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddObjective}
+                  className="px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors"
+                >
+                  Añadir
+                </button>
+              </div>
+              <ul className="space-y-2 max-h-32 overflow-y-auto pr-2">
+                {(editingClass ? editingClass.objectives : newClass.objectives).map((obj, index) => (
+                  <li key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded-md">
+                    <span className="text-sm text-gray-800">{obj.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveObjective(index)}
+                      className="text-red-500 hover:text-red-700 font-bold text-lg"
+                      aria-label="Eliminar objetivo"
+                    >
+                      &times;
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div>
               <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
               <input
@@ -712,7 +795,32 @@ const App = () => {
                             {cls.createdBy && (
                               <p className="text-xs text-gray-400 mb-2 sm:mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
                             )}
-                            <div className="flex flex-wrap gap-2">
+                            {/* LISTA DE OBJETIVOS MARBABLES */}
+                            {cls.objectives && cls.objectives.length > 0 && (
+                              <div className="mt-3 border-t pt-3">
+                                <h5 className="text-sm font-semibold text-gray-700 mb-2">Objetivos:</h5>
+                                <ul className="space-y-1.5">
+                                  {cls.objectives.map((obj, index) => (
+                                    <li key={index} className="flex items-center">
+                                      <input
+                                        type="checkbox"
+                                        id={`obj-${cls.id}-${index}`}
+                                        checked={obj.completed}
+                                        onChange={() => handleToggleObjective(cls.id, index)}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                      />
+                                      <label
+                                        htmlFor={`obj-${cls.id}-${index}`}
+                                        className={`ml-2 text-sm text-gray-600 cursor-pointer ${obj.completed ? 'line-through text-gray-400' : ''}`}
+                                      >
+                                        {obj.text}
+                                      </label>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-2 mt-4">
                               <button
                                 onClick={() => startEditing(cls)}
                                 className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50" // Adjusted rounded-md to rounded-lg
