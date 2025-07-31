@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Text } from 'recharts';
 
 // ====================================================================================================
 // ========================== PASOS CRÍTICOS PARA QUE LA APP FUNCIONE ===============================
@@ -93,7 +93,7 @@ const CustomModal = ({ message, onConfirm, onCancel, showCancel = false }) => {
           )}
           <button
             onClick={onConfirm}
-            className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            className="px-5 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
           >
             Aceptar
           </button>
@@ -134,6 +134,7 @@ const App = () => {
   const [showModalCancel, setShowModalCancel] = useState(false);
   const [newObjective, setNewObjective] = useState('');
   const [printingWeekId, setPrintingWeekId] = useState(null);
+  const [activeTab, setActiveTab] = useState('addClass');
 
   // Authentication and Firestore Initialization
   useEffect(() => {
@@ -311,6 +312,7 @@ const App = () => {
   };
 
   const startEditing = (classToEdit) => {
+    setActiveTab('addClass'); // Switch to the form tab when editing
     setEditingClass({
       ...initialClassState,
       ...classToEdit,
@@ -467,35 +469,33 @@ const App = () => {
     const completedClasses = classes.filter(c => c.status === 'Completada').length;
     const inProgressClasses = classes.filter(c => c.status === 'En Progreso').length;
     const plannedClasses = classes.filter(c => c.status === 'Planeada').length;
+    
+    const progressPercentage = totalClasses > 0 ? ((completedClasses / totalClasses) * 100) : 0;
 
     const overallStatusData = [
-      { name: 'Completadas', value: completedClasses, color: '#4CAF50' },
-      { name: 'En Progreso', value: inProgressClasses, color: '#FFC107' },
-      { name: 'Planeadas', value: plannedClasses, color: '#2196F3' },
+      { name: 'Completadas', value: completedClasses, color: '#4f46e5' }, // indigo-600
+      { name: 'En Progreso', value: inProgressClasses, color: '#f59e0b' }, // amber-500
+      { name: 'Planeadas', value: plannedClasses, color: '#60a5fa' }, // blue-400
     ];
 
     const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const progressByDay = {};
+    const dailyData = weekOrder.reduce((acc, day) => {
+        acc[day] = { Planeada: 0, 'En Progreso': 0, Completada: 0 };
+        return acc;
+    }, {});
 
     classes.forEach(c => {
-      if (!progressByDay[c.dayOfWeek]) {
-        progressByDay[c.dayOfWeek] = { 'Clases Planeadas': 0, 'Clases Completadas': 0 };
-      }
-      progressByDay[c.dayOfWeek]['Clases Planeadas']++;
-      if (c.status === 'Completada') {
-        progressByDay[c.dayOfWeek]['Clases Completadas']++;
-      }
+        if (dailyData[c.dayOfWeek]) {
+            dailyData[c.dayOfWeek][c.status]++;
+        }
     });
 
-    const dailyProgressData = Object.keys(progressByDay)
-      .map(day => ({
+    const dailyProgressData = Object.keys(dailyData).map(day => ({
         day: day,
-        'Clases Planeadas': progressByDay[day]['Clases Planeadas'],
-        'Clases Completadas': progressByDay[day]['Clases Completadas'],
-      }))
-      .sort((a, b) => weekOrder.indexOf(a.day) - weekOrder.indexOf(b.day));
+        ...dailyData[day]
+    }));
 
-    return { overallStatusData, dailyProgressData, totalClasses, completedClasses };
+    return { overallStatusData, dailyProgressData, totalClasses, completedClasses, progressPercentage };
   }, [classes]);
   
   const getWeekIdentifier = (dateString) => {
@@ -571,85 +571,71 @@ const App = () => {
     };
   }, []);
 
-
-  const { overallStatusData, dailyProgressData, totalClasses, completedClasses } = getProgressData();
-  const progressPercentage = totalClasses > 0 ? ((completedClasses / totalClasses) * 100).toFixed(1) : 0;
+  const { overallStatusData, dailyProgressData, progressPercentage } = getProgressData();
   const groupedClasses = getGroupedClasses();
-
-  const getProgressMessage = () => {
-    if (totalClasses === 0) return "¡Empieza a añadir tus clases para ver el progreso!";
-    if (completedClasses === totalClasses) return "¡Felicidades! ¡Todas tus clases están completadas!";
-    if (completedClasses > 0 && completedClasses < totalClasses) return "¡Vas muy bien! Sigue así.";
-    return "Aún hay trabajo por hacer. ¡Ánimo!";
-  };
-
   const currentFormData = editingClass || newClass;
   
-  const PrintableWeek = ({ week, workshopName }) => {
-    return (
-      <div className="font-sans">
-          <div className="p-4 bg-gray-100 border-b-2 border-black mb-5">
-            <h1 className="text-2xl font-bold text-black">Plan de Clases: {workshopName}</h1>
-            <h2 className="text-lg text-gray-700">{week.label}</h2>
-          </div>
-          <div className="px-4">
-              {week.sortedDays.map(day => (
-                 <div key={day} className="mb-6" style={{ pageBreakInside: 'avoid' }}>
-                    <h3 className="text-xl font-bold text-black border-b border-gray-400 pb-2 mb-4">{day}</h3>
-                    <div className="space-y-4">
-                      {week.days[day].map(cls => (
-                        <div key={cls.id} className="border border-gray-300 p-4" style={{ pageBreakInside: 'avoid' }}>
-                           <div className="border-b border-gray-200 pb-2 mb-2">
-                             <h4 className="text-lg font-bold text-black">{cls.title}</h4>
-                             <p className="text-sm text-gray-600">{cls.date} ({cls.time}) | {cls.status}</p>
+  const PrintableWeek = ({ week, workshopName }) => (
+    <div className="font-sans">
+        <div className="p-4 bg-gray-100 border-b-2 border-black mb-5">
+          <h1 className="text-2xl font-bold text-black">Plan de Clases: {workshopName}</h1>
+          <h2 className="text-lg text-gray-700">{week.label}</h2>
+        </div>
+        <div className="px-4">
+            {week.sortedDays.map(day => (
+               <div key={day} className="mb-6" style={{ pageBreakInside: 'avoid' }}>
+                  <h3 className="text-xl font-bold text-black border-b border-gray-400 pb-2 mb-4">{day}</h3>
+                  <div className="space-y-4">
+                    {week.days[day].map(cls => (
+                      <div key={cls.id} className="border border-gray-300 p-4" style={{ pageBreakInside: 'avoid' }}>
+                         <div className="border-b border-gray-200 pb-2 mb-2">
+                           <h4 className="text-lg font-bold text-black">{cls.title}</h4>
+                           <p className="text-sm text-gray-600">{cls.date} ({cls.time}) | {cls.status}</p>
+                         </div>
+                         <table className="w-full text-sm">
+                          <tbody>
+                            <tr className="border-b border-gray-200">
+                              <td className="font-bold align-top py-2 pr-2 w-28">Propósito:</td>
+                              <td className="py-2">{cls.purpose || '-'}</td>
+                            </tr>
+                            <tr className="border-b border-gray-200">
+                              <td className="font-bold align-top py-2 pr-2">Inicio:</td>
+                              <td className="py-2">{cls.activity_start || '-'}</td>
+                            </tr>
+                            <tr className="border-b border-gray-200">
+                              <td className="font-bold align-top py-2 pr-2">Desarrollo:</td>
+                              <td className="py-2">{cls.activity_main || '-'}</td>
+                            </tr>
+                            <tr className="border-b border-gray-200">
+                              <td className="font-bold align-top py-2 pr-2">Cierre:</td>
+                              <td className="py-2">{cls.activity_end || '-'}</td>
+                            </tr>
+                              <tr>
+                              <td className="font-bold align-top py-2 pr-2">Recursos:</td>
+                              <td className="py-2">{cls.resources || '-'}</td>
+                            </tr>
+                          </tbody>
+                         </table>
+                         {cls.objectives && cls.objectives.length > 0 && (
+                           <div className="mt-3 pt-3 border-t border-gray-200">
+                             <strong className="text-base">Checklist de Tareas</strong>
+                             <ul className="list-none p-0 mt-1">
+                               {cls.objectives.map((obj, index) => (
+                                 <li key={index} className="text-sm">
+                                   <span className="inline-block mr-2 text-lg">{obj.completed ? '☑' : '☐'}</span> {obj.text}
+                                 </li>
+                               ))}
+                             </ul>
                            </div>
-                           
-                           <table className="w-full text-sm">
-                            <tbody>
-                              <tr className="border-b border-gray-200">
-                                <td className="font-bold align-top py-2 pr-2 w-28">Propósito:</td>
-                                <td className="py-2">{cls.purpose || '-'}</td>
-                              </tr>
-                              <tr className="border-b border-gray-200">
-                                <td className="font-bold align-top py-2 pr-2">Inicio:</td>
-                                <td className="py-2">{cls.activity_start || '-'}</td>
-                              </tr>
-                              <tr className="border-b border-gray-200">
-                                <td className="font-bold align-top py-2 pr-2">Desarrollo:</td>
-                                <td className="py-2">{cls.activity_main || '-'}</td>
-                              </tr>
-                              <tr className="border-b border-gray-200">
-                                <td className="font-bold align-top py-2 pr-2">Cierre:</td>
-                                <td className="py-2">{cls.activity_end || '-'}</td>
-                              </tr>
-                               <tr>
-                                <td className="font-bold align-top py-2 pr-2">Recursos:</td>
-                                <td className="py-2">{cls.resources || '-'}</td>
-                              </tr>
-                            </tbody>
-                           </table>
-
-                           {cls.objectives && cls.objectives.length > 0 && (
-                             <div className="mt-3 pt-3 border-t border-gray-200">
-                               <strong className="text-base">Checklist de Tareas</strong>
-                               <ul className="list-none p-0 mt-1">
-                                 {cls.objectives.map((obj, index) => (
-                                   <li key={index} className="text-sm">
-                                     <span className="inline-block mr-2 text-lg">{obj.completed ? '☑' : '☐'}</span> {obj.text}
-                                   </li>
-                                 ))}
-                               </ul>
-                             </div>
-                           )}
-                        </div>
-                      ))}
-                    </div>
-                 </div>
-              ))}
-          </div>
-      </div>
-    );
-  };
+                         )}
+                      </div>
+                    ))}
+                  </div>
+               </div>
+            ))}
+        </div>
+    </div>
+  );
   
   if (printingWeekId) {
     const weekToPrint = groupedClasses.find(w => w.id === printingWeekId);
@@ -657,7 +643,7 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 sm:p-6 font-sans text-gray-800 max-w-full overflow-x-hidden relative z-0 print:hidden">
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-800 print:hidden">
       <CustomModal
         message={modalMessage}
         onConfirm={() => {
@@ -673,479 +659,228 @@ const App = () => {
         }}
         showCancel={showModalCancel}
       />
+      
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Planificador de Clases</h1>
+          <p className="text-gray-500 mt-1">Panel de control para tus talleres de {selectedWorkshop || "..."}</p>
+        </header>
 
-      <header className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 mb-6 sm:mb-8 text-center relative z-10">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 mb-2">Planificador de Clases para Taller</h1>
-        <p className="text-base sm:text-lg text-gray-600">Organiza y sigue el progreso de tus talleres.</p>
-        {userId && (
-          <p className="text-xs sm:text-sm text-gray-500 mt-2">
-            ID de Sesión Anónima (compartido para identificar tus aportaciones): <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-md text-xs">{userId}</span>
-          </p>
-        )}
-        {!isAuthReady && (
-          <p className="text-sm text-blue-500 mt-2 animate-pulse">Conectando con la base de datos...</p>
-        )}
-      </header>
-
-      <main className="flex flex-col lg:grid lg:grid-cols-3 gap-6 sm:gap-8 relative z-0">
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit lg:col-span-1 lg:sticky lg:top-4 w-full order-first relative z-20">
-          <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">
-            {editingClass ? 'Editar Clase' : `Añadir Nueva Clase para ${selectedWorkshop || 'un Taller'}`}
-          </h2>
-          <div className="space-y-3 sm:space-y-4">
-            {!editingClass && (
-              <div>
-                <label htmlFor="workshopType" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Taller</label>
-                <select
-                  id="workshopType"
-                  name="workshopType"
-                  value={currentFormData.workshopType}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-                >
-                  {workshops.length === 0 && <option value="">Añade un taller...</option>}
-                  {workshops.map(workshop => (
-                    <option key={workshop.id} value={workshop.name}>{workshop.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {editingClass && (
-              <div>
-                <label htmlFor="workshopType" className="block text-sm font-medium text-gray-700 mb-1">Tipo de Taller</label>
-                <input
-                  type="text"
-                  id="workshopType"
-                  name="workshopType"
-                  value={currentFormData.workshopType}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base"
-                />
-              </div>
-            )}
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Título de la Clase</label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={currentFormData.title}
-                onChange={handleInputChange}
-                placeholder="Introducir título"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-              />
-            </div>
-
-            <div className='border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50'>
-              <h3 className='text-lg font-semibold text-gray-700'>Guía Pedagógica</h3>
-              <div>
-                <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 mb-1">Propósito de la Clase</label>
-                <input
-                  type="text"
-                  id="purpose"
-                  name="purpose"
-                  value={currentFormData.purpose}
-                  onChange={handleInputChange}
-                  placeholder="¿Qué competencia se desarrollará?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                />
-              </div>
-              <div>
-                <label htmlFor="activity_start" className="block text-sm font-medium text-gray-700 mb-1">Inicio (Actividad de Apertura)</label>
-                <textarea
-                  id="activity_start"
-                  name="activity_start"
-                  value={currentFormData.activity_start}
-                  onChange={handleInputChange}
-                  rows="2"
-                  placeholder="¿Cómo iniciará la sesión?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                ></textarea>
-              </div>
-              <div>
-                <label htmlFor="activity_main" className="block text-sm font-medium text-gray-700 mb-1">Desarrollo (Actividades Principales)</label>
-                <textarea
-                  id="activity_main"
-                  name="activity_main"
-                  value={currentFormData.activity_main}
-                  onChange={handleInputChange}
-                  rows="4"
-                  placeholder="Detallar actividades centrales..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                ></textarea>
-              </div>
-              <div>
-                <label htmlFor="activity_end" className="block text-sm font-medium text-gray-700 mb-1">Cierre (Actividad de Conclusión)</label>
-                <textarea
-                  id="activity_end"
-                  name="activity_end"
-                  value={currentFormData.activity_end}
-                  onChange={handleInputChange}
-                  rows="2"
-                  placeholder="¿Cómo concluirá la sesión?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                ></textarea>
-              </div>
-              <div>
-                <label htmlFor="resources" className="block text-sm font-medium text-gray-700 mb-1">Recursos y Materiales</label>
-                <textarea
-                  id="resources"
-                  name="resources"
-                  value={currentFormData.resources}
-                  onChange={handleInputChange}
-                  rows="2"
-                  placeholder="Listar materiales necesarios..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                ></textarea>
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="objective" className="block text-sm font-medium text-gray-700 mb-1">Objetivos Marcables (Checklist de Tareas)</label>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  id="objective"
-                  value={newObjective}
-                  onChange={(e) => setNewObjective(e.target.value)}
-                  placeholder="Escribe una tarea específica y añádela"
-                  className="flex-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddObjective}
-                  className="px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors"
-                >
-                  Añadir
-                </button>
-              </div>
-              <ul className="space-y-2 max-h-32 overflow-y-auto pr-2">
-                {currentFormData.objectives.map((obj, index) => (
-                  <li key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded-md">
-                    <span className="text-sm text-gray-800">{obj.text}</span>
+        <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Main Content Column */}
+          <section className="lg:col-span-2 space-y-8">
+            {/* Workshop Selector */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-sm font-semibold text-gray-500 mb-3">SELECCIONA UN TALLER</h2>
+              <div className="flex flex-wrap gap-2">
+                {workshops.length === 0 ? (
+                  <p className="text-gray-500">Añade talleres en el panel de la derecha.</p>
+                ) : (
+                  workshops.map(workshop => (
                     <button
-                      type="button"
-                      onClick={() => handleRemoveObjective(index)}
-                      className="text-red-500 hover:text-red-700 font-bold text-lg"
-                      aria-label="Eliminar objetivo"
+                      key={workshop.id}
+                      onClick={() => setSelectedWorkshop(workshop.name)}
+                      className={`px-4 py-2 rounded-md font-semibold text-sm transition-all duration-200 ${
+                        selectedWorkshop === workshop.name
+                          ? 'bg-indigo-600 text-white shadow'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                     >
-                      &times;
+                      {workshop.name}
                     </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-                <input
-                  type="date"
-                  id="date"
-                  name="date"
-                  value={currentFormData.date}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-                />
-              </div>
-              <div>
-                <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
-                <input
-                  type="time"
-                  id="time"
-                  name="time"
-                  value={currentFormData.time}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-                />
+                  ))
+                )}
               </div>
             </div>
 
-            <div>
-              <label htmlFor="dayOfWeek" className="block text-sm font-medium text-gray-700 mb-1">Día de la Semana</label>
-              <input
-                type="text"
-                id="dayOfWeek"
-                name="dayOfWeek"
-                value={currentFormData.dayOfWeek}
-                readOnly
-                placeholder="Se calculará con la fecha"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base"
-              />
-            </div>
-            {editingClass && (
-              <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                <select
-                  id="status"
-                  name="status"
-                  value={currentFormData.status}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-                >
-                  <option value="Planeada">Planeada</option>
-                  <option value="En Progreso">En Progreso</option>
-                  <option value="Completada">Completada</option>
-                </select>
-              </div>
-            )}
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mt-4 sm:mt-6">
-              <button
-                onClick={addOrUpdateClass}
-                className="flex-1 bg-blue-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 text-base sm:text-lg"
-              >
-                {editingClass ? 'Guardar Cambios' : 'Añadir Clase'}
-              </button>
-              {editingClass && (
-                <button
-                  onClick={cancelEditing}
-                  className="flex-1 bg-gray-300 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-400 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 text-base sm:text-lg"
-                >
-                  Cancelar Edición
-                </button>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 space-y-6 sm:space-y-8 lg:col-span-2 w-full order-2 lg:order-2">
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
-            {workshops.length === 0 ? (
-              <p className="text-center text-gray-500 text-sm sm:text-base">Añade talleres en la sección de "Gestión de Talleres".</p>
-            ) : (
-              workshops.map(workshop => (
-                <button
-                  key={workshop.id}
-                  onClick={() => setSelectedWorkshop(workshop.name)}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm sm:text-base transition-all duration-200 ${
-                    selectedWorkshop === workshop.name
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {workshop.name}
-                </button>
-              ))
-            )}
-          </div>
-
-          <div className="space-y-4 sm:space-y-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop || 'Ningún Taller Seleccionado'})</h2>
-            <div className="text-center mb-3 sm:mb-4">
-              <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{progressPercentage}% Completado</p>
-              <p className="text-base sm:text-lg text-gray-700 mt-1 sm:mt-2">{getProgressMessage()}</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Estado de Clases</h3>
-                <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'pie'}>
-                  <PieChart>
-                    <Pie
-                      data={overallStatusData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    >
-                      {overallStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Clases por Día</h3>
-                <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'bar'}>
-                  <BarChart
-                    data={dailyProgressData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" fontSize={12} />
-                    <YAxis fontSize={12} allowDecimals={false} />
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="Clases Planeadas" fill="#2196F3" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="Clases Completadas" fill="#4CAF50" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Mis Clases de {selectedWorkshop || 'Ningún Taller Seleccionado'}</h2>
-            {classes.length === 0 ? (
-              <p className="text-center text-gray-500 py-6 sm:py-8 text-base sm:text-lg">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
-            ) : (
-              <div className="space-y-6">
-                {groupedClasses.map(week => (
-                  <div key={week.id}>
-                    <div className="flex justify-between items-center mb-4 bg-purple-50 p-3 rounded-lg shadow-sm">
-                      <h3 className="text-xl font-bold text-purple-600">{week.label}</h3>
-                      <button onClick={() => handlePrintWeek(week.id)} title="Imprimir o Guardar Semana como PDF" className="p-2 hover:bg-purple-200 rounded-full transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="space-y-4 sm:space-y-6 ml-2 sm:ml-4 pl-4 border-l-2 border-purple-200">
-                      {week.sortedDays.map(day => (
-                         <div key={day}>
-                            <h4 className="text-lg sm:text-xl font-bold text-blue-500 mb-3 border-b-2 border-blue-200 pb-1.5">{day}</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                              {week.days[day].map(cls => (
-                                <div key={cls.id} className={`bg-gray-50 p-4 sm:p-5 rounded-lg shadow-sm border ${
-                                  cls.status === 'Completada' ? 'border-green-400' :
-                                  cls.status === 'En Progreso' ? 'border-yellow-400' :
-                                  'border-blue-300'
-                                }`}>
-                                  <div className="flex justify-between items-start mb-1.5 sm:mb-2">
-                                    <h5 className="text-base sm:text-lg font-semibold text-gray-900">{cls.title}</h5>
-                                    <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                                      cls.status === 'Completada' ? 'bg-green-100 text-green-800' :
-                                      cls.status === 'En Progreso' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-blue-100 text-blue-800'
-                                    }`}>
-                                      {cls.status}
-                                    </span>
-                                  </div>
-                                  
-                                  <div className='text-xs sm:text-sm text-gray-500 mb-3'>
-                                      <span className='font-bold'>{cls.date}</span> {cls.time ? `(${cls.time})` : ''}
-                                  </div>
-                                  
-                                  {cls.purpose || cls.activity_start || cls.activity_main || cls.activity_end || cls.resources ? (
-                                    <div className="space-y-2 text-sm mb-3">
-                                      {cls.purpose && <div><strong className='text-gray-700'>Propósito:</strong> <span className='text-gray-600'>{cls.purpose}</span></div>}
-                                      {cls.activity_start && <div><strong className='text-gray-700'>Inicio:</strong> <span className='text-gray-600'>{cls.activity_start}</span></div>}
-                                      {cls.activity_main && <div><strong className='text-gray-700'>Desarrollo:</strong> <span className='text-gray-600'>{cls.activity_main}</span></div>}
-                                      {cls.activity_end && <div><strong className='text-gray-700'>Cierre:</strong> <span className='text-gray-600'>{cls.activity_end}</span></div>}
-                                      {cls.resources && <div><strong className='text-gray-700'>Recursos:</strong> <span className='text-gray-600'>{cls.resources}</span></div>}
-                                    </div>
-                                  ) : (
-                                      cls.description && <p className="text-sm text-gray-600 mb-2">{cls.description}</p>
-                                  )}
-
-                                  {cls.createdBy && (
-                                    <p className="text-xs text-gray-400 mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
-                                  )}
-                                  
-                                  {cls.objectives && cls.objectives.length > 0 && (
-                                    <div className="border-t pt-3">
-                                      <h5 className="text-sm font-semibold text-gray-700 mb-2">Checklist de Tareas:</h5>
-                                      <ul className="space-y-1.5">
-                                        {cls.objectives.map((obj, index) => (
-                                          <li key={index} className="flex items-center">
-                                            <input
-                                              type="checkbox"
-                                              id={`obj-${cls.id}-${index}`}
-                                              checked={obj.completed}
-                                              onChange={() => handleToggleObjective(cls.id, index)}
-                                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                            />
-                                            <label
-                                              htmlFor={`obj-${cls.id}-${index}`}
-                                              className={`ml-2 text-sm text-gray-600 cursor-pointer ${obj.completed ? 'line-through text-gray-400' : ''}`}
-                                            >
-                                              {obj.text}
-                                            </label>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-
-                                  <div className="flex flex-wrap gap-2 mt-4 border-t pt-3 no-print">
-                                    <button
-                                      onClick={() => startEditing(cls)}
-                                      className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
-                                    >
-                                      Editar
-                                    </button>
-                                    <button
-                                      onClick={() => deleteClass(cls.id)}
-                                      className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
-                                    >
-                                      Eliminar
-                                    </button>
-                                    <select
-                                      value={cls.status}
-                                      onChange={(e) => updateClassStatus(cls.id, e.target.value)}
-                                      className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                                    >
-                                      <option value="Planeada">Planeada</option>
-                                      <option value="En Progreso">En Progreso</option>
-                                      <option value="Completada">Completada</option>
-                                    </select>
-                                  </div>
-                                </div>
+            {/* Stats / Graphs */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado General</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                          <Pie
+                              data={overallStatusData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              paddingAngle={5}
+                              dataKey="value"
+                          >
+                              {overallStatusData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
                               ))}
-                            </div>
-                         </div>
-                      ))}
+                          </Pie>
+                          <Tooltip />
+                           <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-3xl font-bold fill-gray-800">
+                              {progressPercentage.toFixed(0)}%
+                          </text>
+                           <text x="50%" y="50%" dy={20} textAnchor="middle" className="fill-gray-500 text-sm">
+                              Completado
+                          </text>
+                      </PieChart>
+                  </ResponsiveContainer>
+              </div>
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Clases por Día</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={dailyProgressData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <Tooltip cursor={{fill: 'rgba(239, 246, 255, 0.5)'}} />
+                          <Legend wrapperStyle={{fontSize: '12px', paddingTop: '10px'}} />
+                          <Bar dataKey="Planeada" stackId="a" fill="#60a5fa" radius={[0, 0, 4, 4]} />
+                          <Bar dataKey="En Progreso" stackId="a" fill="#f59e0b" radius={[0, 0, 4, 4]} />
+                          <Bar dataKey="Completada" stackId="a" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                  </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Class List */}
+            <div className="space-y-8">
+              {groupedClasses.map(week => (
+                <div key={week.id}>
+                  <div className="flex justify-between items-center mb-4 p-3">
+                    <h3 className="text-xl font-bold text-gray-800">{week.label}</h3>
+                    <button onClick={() => handlePrintWeek(week.id)} title="Imprimir o Guardar Semana como PDF" className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="space-y-6">
+                    {week.sortedDays.map(day => (
+                       <div key={day}>
+                          <h4 className="text-base font-semibold text-gray-500 uppercase tracking-wider mb-3">{day}</h4>
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            {week.days[day].map(cls => (
+                              <div key={cls.id} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md">
+                                <div className="flex justify-between items-start mb-2">
+                                  <h5 className="text-base font-bold text-gray-800">{cls.title}</h5>
+                                  <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+                                    cls.status === 'Completada' ? 'bg-indigo-100 text-indigo-800' :
+                                    cls.status === 'En Progreso' ? 'bg-amber-100 text-amber-800' :
+                                    'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {cls.status}
+                                  </span>
+                                </div>
+                                <p className='text-xs text-gray-500 mb-3'>{cls.date} {cls.time ? `(${cls.time})` : ''}</p>
+                                
+                                {cls.purpose && <p className="text-sm text-gray-600 mb-2 line-clamp-2"><strong className="font-semibold">Propósito:</strong> {cls.purpose}</p>}
+
+                                {cls.objectives && cls.objectives.length > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-gray-100">
+                                    <h5 className="text-xs font-semibold text-gray-500 mb-2">CHECKLIST</h5>
+                                    <ul className="space-y-1.5">
+                                      {cls.objectives.slice(0, 3).map((obj, index) => (
+                                        <li key={index} className="flex items-center text-sm">
+                                          <input
+                                            type="checkbox"
+                                            id={`obj-small-${cls.id}-${index}`}
+                                            checked={obj.completed}
+                                            onChange={() => handleToggleObjective(cls.id, index)}
+                                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                          />
+                                          <label htmlFor={`obj-small-${cls.id}-${index}`} className={`ml-2 text-gray-600 ${obj.completed ? 'line-through text-gray-400' : ''}`}>{obj.text}</label>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-100">
+                                  <button onClick={() => startEditing(cls)} className="px-3 py-1 text-xs bg-gray-100 text-gray-700 font-semibold rounded-md hover:bg-gray-200 transition-colors">Editar</button>
+                                  <button onClick={() => deleteClass(cls.id)} className="px-3 py-1 text-xs bg-red-50 text-red-700 font-semibold rounded-md hover:bg-red-100 transition-colors">Eliminar</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                       </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Sidebar Column */}
+          <aside className="lg:col-span-1">
+            <div className="sticky top-8 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="border-b border-gray-200">
+                <nav className="flex -mb-px" aria-label="Tabs">
+                  <button onClick={() => setActiveTab('addClass')} className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'addClass' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+                    {editingClass ? 'Editar Clase' : 'Añadir Clase'}
+                  </button>
+                  <button onClick={() => setActiveTab('manage')} className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'manage' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+                    Gestión
+                  </button>
+                </nav>
+              </div>
+              
+              {/* Add/Edit Class Tab */}
+              <div className={`p-6 ${activeTab === 'addClass' ? 'block' : 'hidden'}`}>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">{editingClass ? 'Editar Clase' : `Añadir a ${selectedWorkshop || '...'}`}</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="title" className="block text-sm font-medium text-gray-700">Título de la Clase</label>
+                    <input type="text" id="title" name="title" value={currentFormData.title} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
+                  </div>
+                  <div>
+                    <label htmlFor="date" className="block text-sm font-medium text-gray-700">Fecha y Hora</label>
+                    <div className="flex gap-2 mt-1">
+                      <input type="date" id="date" name="date" value={currentFormData.date} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
+                      <input type="time" id="time" name="time" value={currentFormData.time} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
                     </div>
                   </div>
-                ))}
+                  <div className="flex-1 bg-indigo-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition duration-200 ease-in-out shadow-sm text-center cursor-pointer" onClick={addOrUpdateClass}>
+                    {editingClass ? 'Guardar Cambios' : 'Añadir Clase'}
+                  </div>
+                  {editingClass && (
+                    <div className="flex-1 bg-gray-200 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-300 transition duration-200 ease-in-out shadow-sm text-center cursor-pointer" onClick={cancelEditing}>
+                      Cancelar Edición
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </section>
-
-        <section className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 h-fit w-full order-last lg:order-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-4 sm:mb-6 border-b pb-2 sm:pb-3">Gestión de Talleres</h2>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="newWorkshopName" className="block text-sm font-medium text-gray-700 mb-1">Añadir Nuevo Taller</label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  id="newWorkshopName"
-                  name="newWorkshopName"
-                  value={newWorkshopName}
-                  onChange={(e) => setNewWorkshopName(e.target.value)}
-                  placeholder="Ej. Taller de Música"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base transition duration-150 ease-in-out"
-                />
-                <button
-                  onClick={addWorkshop}
-                  className="bg-green-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-700 transition duration-200 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 text-base sm:text-lg"
-                >
-                  Añadir Taller
-                </button>
+              
+              {/* Management Tab */}
+              <div className={`p-6 ${activeTab === 'manage' ? 'block' : 'hidden'}`}>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Añadir Nuevo Taller</h3>
+                    <div className="flex gap-2">
+                      <input type="text" value={newWorkshopName} onChange={(e) => setNewWorkshopName(e.target.value)} placeholder="Ej. Taller de Música" className="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
+                      <button onClick={addWorkshop} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">Añadir</button>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Talleres Existentes</h3>
+                    {workshops.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No hay talleres añadidos aún.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {workshops.map(workshop => (
+                          <li key={workshop.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-md">
+                            <span className="text-sm text-gray-800">{workshop.name}</span>
+                            <button onClick={() => deleteWorkshop(workshop.id, workshop.name)} className="text-red-500 hover:text-red-700 font-bold text-sm">&times;</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-2">Talleres Existentes</h3>
-              {workshops.length === 0 ? (
-                <p className="text-gray-500 italic text-sm sm:text-base">No hay talleres añadidos aún.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {workshops.map(workshop => (
-                    <li key={workshop.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
-                      <span className="text-base text-gray-800">{workshop.name}</span>
-                      <button
-                        onClick={() => deleteWorkshop(workshop.id, workshop.name)}
-                        className="px-3 py-1 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
-                      >
-                        Eliminar
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
-          </div>
-        </section>
-      </main>
+          </aside>
+        </main>
+      </div>
     </div>
   );
 };
