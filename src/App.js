@@ -543,7 +543,7 @@ const App = () => {
     } else {
         setExpandedWeeks([]);
     }
-  }, [selectedWorkshop, classes]);
+  }, [selectedWorkshop]); // CORRECTED DEPENDENCY
 
   const handlePrintWeek = (weekId) => {
     setPrintingWeekId(weekId);
@@ -562,31 +562,6 @@ const App = () => {
     };
   }, []);
 
-  const getProgressMessage = (total, completed) => {
-    if (total === 0) return "Añade clases para empezar.";
-    if (completed === total && total > 0) return "¡Felicidades! Todos los objetivos de esta vista están completados.";
-    if (completed > 0) return "¡Vas muy bien! Sigue así.";
-    return "Aún hay trabajo por hacer. ¡Ánimo!";
-  };
-
-  const toggleWeek = (weekId) => {
-    setExpandedWeeks(prev => {
-        if (prev.includes(weekId)) {
-            return prev.filter(id => id !== weekId);
-        } else {
-            return [weekId];
-        }
-    });
-  };
-
-  const currentFormData = editingClass || newClass;
-  
-  const focusedWeekId = expandedWeeks.length > 0 ? expandedWeeks[0] : null;
-
-  const classesForCharts = focusedWeekId
-    ? classes.filter(c => getWeekIdentifier(c.date).id === focusedWeekId)
-    : classes;
-    
   const getChartData = (classList) => {
     const total = classList.length;
     const completed = classList.filter(c => c.status === 'Completada').length;
@@ -639,9 +614,33 @@ const App = () => {
     return Object.values(weekMap);
   };
 
+  const toggleWeek = (weekId) => {
+    setExpandedWeeks(prev => {
+        if (prev.includes(weekId)) {
+            return []; // Contraer la semana actual y no expandir ninguna otra.
+        } else {
+            return [weekId]; // Expandir solo la semana seleccionada.
+        }
+    });
+  };
+
+  const currentFormData = editingClass || newClass;
+  
+  const focusedWeekId = expandedWeeks.length > 0 ? expandedWeeks[0] : null;
+
+  const classesForCharts = focusedWeekId
+    ? classes.filter(c => getWeekIdentifier(c.date).id === focusedWeekId)
+    : classes;
+    
   const chartData = getChartData(classesForCharts);
   const weeklyOverviewData = getWeeklyOverviewData(classes);
 
+  const getProgressMessage = (total, completed) => {
+    if (total === 0) return "Añade clases para empezar.";
+    if (completed === total && total > 0) return "¡Felicidades! Todos los objetivos de esta vista están completados.";
+    if (completed > 0) return "¡Vas muy bien! Sigue así.";
+    return "Aún hay trabajo por hacer. ¡Ánimo!";
+  };
 
   const PrintableWeek = ({ week, workshopName }) => (
     <div className="font-sans">
@@ -985,7 +984,7 @@ const App = () => {
 
           <div className="space-y-4 sm:space-y-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">
-              {focusedWeekId && classesForCharts.length > 0 ? "Avance de la Semana" : "Avance General"} ({selectedWorkshop || 'Ningún Taller Seleccionado'})
+              {focusedWeekId ? "Avance de la Semana" : "Avance General"} ({selectedWorkshop || 'Ningún Taller Seleccionado'})
             </h2>
             <div className="text-center mb-3 sm:mb-4">
               <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{`${chartData.percentage.toFixed(1)}%`}% Completado</p>
@@ -1028,8 +1027,8 @@ const App = () => {
                     </>
                 ) : (
                     <div className="md:col-span-2 bg-gray-50 p-6 rounded-lg shadow-inner h-64 sm:h-72 flex flex-col items-center justify-center text-center">
-                         <h3 className="text-lg sm:text-xl font-semibold text-gray-700">No hay datos para esta vista</h3>
-                         <p className="text-gray-500 mt-2">{focusedWeekId ? 'No hay clases en la semana seleccionada.' : 'Añade una clase para ver las estadísticas.'}</p>
+                         <h3 className="text-lg sm:text-xl font-semibold text-gray-700">No hay clases para este taller</h3>
+                         <p className="text-gray-500 mt-2">Añade una clase para ver las estadísticas aquí.</p>
                     </div>
                 )}
             </div>
