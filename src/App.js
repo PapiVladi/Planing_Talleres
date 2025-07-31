@@ -462,37 +462,6 @@ const App = () => {
       }
     });
   };
-  
-  const getProgressData = (classList) => {
-    const total = classList.length;
-    const completed = classList.filter(c => c.status === 'Completada').length;
-    const inProgress = classList.filter(c => c.status === 'En Progreso').length;
-    const planned = classList.filter(c => c.status === 'Planeada').length;
-    
-    const percentage = total > 0 ? ((completed / total) * 100) : 0;
-
-    const statusData = [
-      { name: 'Completada', value: completed, color: '#4f46e5' },
-      { name: 'En Progreso', value: inProgress, color: '#f59e0b' },
-      { name: 'Planeada', value: planned, color: '#60a5fa' },
-    ];
-
-    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const dailyData = weekOrder.reduce((acc, day) => {
-        acc[day] = { Planeada: 0, 'En Progreso': 0, Completada: 0 };
-        return acc;
-    }, {});
-
-    classList.forEach(c => {
-        if (dailyData[c.dayOfWeek]) {
-            dailyData[c.dayOfWeek][c.status]++;
-        }
-    });
-
-    const dailyChartData = Object.keys(dailyData).map(day => ({ day, ...dailyData[day] }));
-    
-    return { percentage, statusData, dailyChartData, total, completed };
-  };
 
   const getWeekIdentifier = (dateString) => {
     const date = new Date(`${dateString}T00:00:00`);
@@ -549,10 +518,10 @@ const App = () => {
       .sort(([weekIdA], [weekIdB]) => weekIdA.localeCompare(weekIdB))
       .map(([id, data]) => ({ id, ...data }));
   }, [classes]);
-  
+
   const groupedClasses = getGroupedClasses();
   
-  // THIS IS THE CORRECTED LOGIC
+  // Sets the default expanded week
   useEffect(() => {
     if (groupedClasses.length > 0) {
         const today = new Date();
@@ -574,7 +543,7 @@ const App = () => {
     } else {
         setExpandedWeeks([]);
     }
-  }, [selectedWorkshop, classes]); // CORRECT DEPENDENCY ARRAY
+  }, [selectedWorkshop, classes]); // CORRECTED DEPENDENCY
 
   const handlePrintWeek = (weekId) => {
     setPrintingWeekId(weekId);
@@ -592,12 +561,36 @@ const App = () => {
       window.removeEventListener('afterprint', afterPrint);
     };
   }, []);
+  
+  const getChartData = (classList) => {
+    const total = classList.length;
+    const completed = classList.filter(c => c.status === 'Completada').length;
+    const inProgress = classList.filter(c => c.status === 'En Progreso').length;
+    const planned = classList.filter(c => c.status === 'Planeada').length;
+    
+    const percentage = total > 0 ? ((completed / total) * 100) : 0;
 
-  const getProgressMessage = (total, completed) => {
-    if (total === 0) return "Añade clases para empezar.";
-    if (completed === total && total > 0) return "¡Felicidades! Semana completada.";
-    if (completed > 0) return "¡Vas muy bien! Sigue así.";
-    return "Aún hay trabajo por hacer. ¡Ánimo!";
+    const statusData = [
+      { name: 'Completada', value: completed, color: '#4f46e5' },
+      { name: 'En Progreso', value: inProgress, color: '#f59e0b' },
+      { name: 'Planeada', value: planned, color: '#60a5fa' },
+    ];
+
+    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dailyData = weekOrder.reduce((acc, day) => {
+        acc[day] = { Planeada: 0, 'En Progreso': 0, Completada: 0 };
+        return acc;
+    }, {});
+
+    classList.forEach(c => {
+        if (dailyData[c.dayOfWeek]) {
+            dailyData[c.dayOfWeek][c.status]++;
+        }
+    });
+
+    const dailyChartData = Object.keys(dailyData).map(day => ({ day, ...dailyData[day] }));
+    
+    return { percentage, statusData, dailyChartData, total, completed };
   };
 
   const toggleWeek = (weekId) => {
@@ -613,11 +606,19 @@ const App = () => {
   const currentFormData = editingClass || newClass;
   
   const focusedWeekId = expandedWeeks.length > 0 ? expandedWeeks[0] : null;
+
   const classesForCharts = focusedWeekId
     ? classes.filter(c => getWeekIdentifier(c.date).id === focusedWeekId)
     : classes;
     
   const chartData = getChartData(classesForCharts);
+
+  const getProgressMessage = (total, completed) => {
+    if (total === 0) return "Añade clases para empezar.";
+    if (completed === total && total > 0) return "¡Felicidades! Semana completada.";
+    if (completed > 0) return "¡Vas muy bien! Sigue así.";
+    return "Aún hay trabajo por hacer. ¡Ánimo!";
+  };
 
   const PrintableWeek = ({ week, workshopName }) => (
     <div className="font-sans">
@@ -961,7 +962,7 @@ const App = () => {
 
           <div className="space-y-4 sm:space-y-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">
-              {focusedWeekId ? "Avance de la Semana" : "Avance General"} ({selectedWorkshop || 'Ningún Taller Seleccionado'})
+                {focusedWeekId && classesForCharts.length > 0 ? "Avance de la Semana" : "Avance General"} ({selectedWorkshop || 'Ningún Taller Seleccionado'})
             </h2>
             <div className="text-center mb-3 sm:mb-4">
               <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{`${chartData.percentage.toFixed(1)}%`}% Completado</p>
@@ -1004,8 +1005,8 @@ const App = () => {
                     </>
                 ) : (
                     <div className="md:col-span-2 bg-gray-50 p-6 rounded-lg shadow-inner h-64 sm:h-72 flex flex-col items-center justify-center text-center">
-                         <h3 className="text-lg sm:text-xl font-semibold text-gray-700">No hay clases en esta vista</h3>
-                         <p className="text-gray-500 mt-2">Añade una clase o selecciona otra semana para ver las estadísticas aquí.</p>
+                         <h3 className="text-lg sm:text-xl font-semibold text-gray-700">No hay datos para esta vista</h3>
+                         <p className="text-gray-500 mt-2">{focusedWeekId ? 'No hay clases en la semana seleccionada.' : 'Añade una clase para ver las estadísticas.'}</p>
                     </div>
                 )}
             </div>
