@@ -134,7 +134,7 @@ const App = () => {
   const [showModalCancel, setShowModalCancel] = useState(false);
   const [newObjective, setNewObjective] = useState('');
   const [printingWeekId, setPrintingWeekId] = useState(null);
-  const [expandedWeeks, setExpandedWeeks] = useState([]); // State for accordion
+  const [expandedWeeks, setExpandedWeeks] = useState([]);
 
   // Authentication and Firestore Initialization
   useEffect(() => {
@@ -463,37 +463,6 @@ const App = () => {
     });
   };
 
-  const getProgressData = useCallback(() => {
-    const totalClasses = classes.length;
-    const completedClasses = classes.filter(c => c.status === 'Completada').length;
-    const progressPercentage = totalClasses > 0 ? ((completedClasses / totalClasses) * 100) : 0;
-
-    const overallStatusData = [
-      { name: 'Completada', value: completedClasses, color: '#4f46e5' }, // indigo-600
-      { name: 'En Progreso', value: classes.filter(c => c.status === 'En Progreso').length, color: '#f59e0b' }, // amber-500
-      { name: 'Planeada', value: classes.filter(c => c.status === 'Planeada').length, color: '#60a5fa' }, // blue-400
-    ];
-
-    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const dailyData = weekOrder.reduce((acc, day) => {
-        acc[day] = { Planeada: 0, 'En Progreso': 0, Completada: 0 };
-        return acc;
-    }, {});
-
-    classes.forEach(c => {
-        if (dailyData[c.dayOfWeek]) {
-            dailyData[c.dayOfWeek][c.status]++;
-        }
-    });
-
-    const dailyProgressData = Object.keys(dailyData).map(day => ({
-        day: day,
-        ...dailyData[day]
-    }));
-    
-    return { overallStatusData, dailyProgressData, progressPercentage };
-  }, [classes]);
-
   const getWeekIdentifier = (dateString) => {
     const date = new Date(`${dateString}T00:00:00`);
 
@@ -524,7 +493,7 @@ const App = () => {
     };
   };
 
-  const getGroupedClasses = () => {
+  const getGroupedClasses = useCallback(() => {
     if (classes.length === 0) return [];
 
     const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -548,7 +517,32 @@ const App = () => {
     return Object.entries(grouped)
       .sort(([weekIdA], [weekIdB]) => weekIdA.localeCompare(weekIdB))
       .map(([id, data]) => ({ id, ...data }));
-  };
+  }, [classes]);
+  
+  const groupedClasses = getGroupedClasses();
+  
+  useEffect(() => {
+    if (groupedClasses.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dayOfWeek = today.getDay();
+        const firstDayOfWeek = new Date(today);
+        firstDayOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+
+        const currentWeekId = firstDayOfWeek.toISOString().split('T')[0];
+        
+        const futureWeek = groupedClasses.find(week => week.id >= currentWeekId);
+        
+        if (futureWeek) {
+            setExpandedWeeks([futureWeek.id]);
+        } else if (groupedClasses.length > 0) {
+            setExpandedWeeks([groupedClasses[groupedClasses.length - 1].id]);
+        }
+    } else {
+        setExpandedWeeks([]);
+    }
+  }, [groupedClasses]);
 
   const handlePrintWeek = (weekId) => {
     setPrintingWeekId(weekId);
@@ -567,50 +561,63 @@ const App = () => {
     };
   }, []);
 
-  const { overallStatusData, dailyProgressData, progressPercentage } = getProgressData();
-  const groupedClasses = getGroupedClasses();
-
-  const getProgressMessage = () => {
-    if (classes.length === 0) return "¡Empieza a añadir tus clases para ver el progreso!";
-    if (classes.filter(c => c.status === 'Completada').length === classes.length && classes.length > 0) return "¡Felicidades! ¡Todas tus clases están completadas!";
-    if (classes.filter(c => c.status === 'Completada').length > 0) return "¡Vas muy bien! Sigue así.";
+  const getProgressMessage = (total, completed) => {
+    if (total === 0) return "Añade clases para empezar.";
+    if (completed === total) return "¡Felicidades! Semana completada.";
+    if (completed > 0) return "¡Vas muy bien! Sigue así.";
     return "Aún hay trabajo por hacer. ¡Ánimo!";
   };
-  
+
   const toggleWeek = (weekId) => {
     setExpandedWeeks(prev => {
         if (prev.includes(weekId)) {
             return prev.filter(id => id !== weekId);
         } else {
-            return [...prev, weekId];
+            // This makes it so only one week can be open at a time
+            return [weekId];
         }
     });
   };
 
-  useEffect(() => {
-    if (groupedClasses.length > 0) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const dayOfWeek = today.getDay();
-        const firstDayOfWeek = new Date(today);
-        firstDayOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
-
-        const currentWeekId = firstDayOfWeek.toISOString().split('T')[0];
-        
-        // Find the first week that is today or in the future
-        const futureWeek = groupedClasses.find(week => week.id >= currentWeekId);
-        
-        if (futureWeek) {
-            setExpandedWeeks([futureWeek.id]);
-        } else if (groupedClasses.length > 0) {
-            // If no future weeks, expand the last available week
-            setExpandedWeeks([groupedClasses[groupedClasses.length - 1].id]);
-        }
-    }
-  }, [classes, selectedWorkshop]); // Rerun when classes or workshop changes
-
   const currentFormData = editingClass || newClass;
+  
+  const focusedWeekId = expandedWeeks.length > 0 ? expandedWeeks[0] : null;
+  const classesForCharts = focusedWeekId
+    ? classes.filter(c => getWeekIdentifier(c.date).id === focusedWeekId)
+    : classes;
+    
+  const getChartData = (classList) => {
+    const total = classList.length;
+    const completed = classList.filter(c => c.status === 'Completada').length;
+    const inProgress = classList.filter(c => c.status === 'En Progreso').length;
+    const planned = classList.filter(c => c.status === 'Planeada').length;
+    
+    const percentage = total > 0 ? ((completed / total) * 100) : 0;
+
+    const statusData = [
+      { name: 'Completada', value: completed, color: '#4f46e5' },
+      { name: 'En Progreso', value: inProgress, color: '#f59e0b' },
+      { name: 'Planeada', value: planned, color: '#60a5fa' },
+    ];
+
+    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dailyData = weekOrder.reduce((acc, day) => {
+        acc[day] = { Planeada: 0, 'En Progreso': 0, Completada: 0 };
+        return acc;
+    }, {});
+
+    classList.forEach(c => {
+        if (dailyData[c.dayOfWeek]) {
+            dailyData[c.dayOfWeek][c.status]++;
+        }
+    });
+
+    const dailyChartData = Object.keys(dailyData).map(day => ({ day, ...dailyData[day] }));
+    
+    return { percentage, statusData, dailyChartData, total, completed };
+  };
+  
+  const chartData = getChartData(classesForCharts);
 
   const PrintableWeek = ({ week, workshopName }) => (
     <div className="font-sans">
@@ -953,58 +960,72 @@ const App = () => {
           </div>
 
           <div className="space-y-4 sm:space-y-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop || 'Ningún Taller Seleccionado'})</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">
+              {focusedWeekId ? "Avance de la Semana" : "Avance General"} ({selectedWorkshop || 'Ningún Taller Seleccionado'})
+            </h2>
             <div className="text-center mb-3 sm:mb-4">
-              <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{`${parseFloat(progressPercentage).toFixed(1)}%`}% Completado</p>
-              <p className="text-base sm:text-lg text-gray-700 mt-1 sm:mt-2">{getProgressMessage()}</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{`${chartData.percentage.toFixed(1)}%`}% Completado</p>
+              <p className="text-base sm:text-lg text-gray-700 mt-1 sm:mt-2">{getProgressMessage(chartData.total, chartData.completed)}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Estado de Clases</h3>
-                <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'pie'}>
-                    <PieChart>
-                        <Pie data={overallStatusData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} dataKey="value">
-                            {overallStatusData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.color} /> ))}
-                        </Pie>
-                        <Tooltip />
-                        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-3xl font-bold fill-gray-800">
-                            {`${parseFloat(progressPercentage).toFixed(0)}%`}
-                        </text>
-                        <text x="50%" y="50%" dy={20} textAnchor="middle" className="fill-gray-500 text-sm">Completado</text>
-                    </PieChart>
-                </ResponsiveContainer>
-              </div>
+                {classesForCharts.length > 0 ? (
+                    <>
+                        <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72">
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Estado de Clases</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={chartData.statusData} cx="50%" cy="45%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} dataKey="value">
+                                        {chartData.statusData.map((entry, index) => ( <Cell key={`cell-${index}`} fill={entry.color} /> ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" className="text-3xl font-bold fill-gray-800">
+                                        {`${chartData.percentage.toFixed(0)}%`}
+                                    </text>
+                                    <text x="50%" y="45%" dy={20} textAnchor="middle" className="fill-gray-500 text-sm">Completado</text>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
 
-              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Clases por Día</h3>
-                <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'bar'}>
-                  <BarChart data={dailyProgressData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="day" fontSize={12} />
-                    <YAxis fontSize={12} allowDecimals={false} />
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="Planeada" stackId="a" fill="#60a5fa" />
-                    <Bar dataKey="En Progreso" stackId="a" fill="#f59e0b" />
-                    <Bar dataKey="Completada" stackId="a" fill="#4f46e5" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+                        <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72">
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Clases por Día</h3>
+                            <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData.dailyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="day" fontSize={12} />
+                                <YAxis fontSize={12} allowDecimals={false} />
+                                <Tooltip />
+                                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                <Bar dataKey="Planeada" stackId="a" fill="#60a5fa" />
+                                <Bar dataKey="En Progreso" stackId="a" fill="#f59e0b" />
+                                <Bar dataKey="Completada" stackId="a" fill="#4f46e5" />
+                            </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </>
+                ) : (
+                    <div className="md:col-span-2 bg-gray-50 p-6 rounded-lg shadow-inner h-64 sm:h-72 flex flex-col items-center justify-center text-center">
+                         <h3 className="text-lg sm:text-xl font-semibold text-gray-700">No hay clases en esta vista</h3>
+                         <p className="text-gray-500 mt-2">Añade una clase para ver las estadísticas aquí.</p>
+                    </div>
+                )}
             </div>
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl p-4 sm:p-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Mis Clases de {selectedWorkshop || 'Ningún Taller Seleccionado'}</h2>
             {classes.length === 0 ? (
-              <p className="text-center text-gray-500 py-6 sm:py-8 text-base sm:text-lg">No hay clases planificadas para {selectedWorkshop} aún. ¡Añade una arriba!</p>
+              <div className="text-center text-gray-500 py-8">
+                <p className="text-lg mb-4">¡Empecemos a planificar!</p>
+                <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200">✨ Planificar mi primera clase</button>
+              </div>
             ) : (
               <div className="space-y-6">
                 {groupedClasses.map(week => (
                   <div key={week.id}>
-                    <div onClick={() => toggleWeek(week.id)} className="flex justify-between items-center mb-4 bg-purple-50 p-3 rounded-lg shadow-sm cursor-pointer hover:bg-purple-100 transition-colors">
-                      <h3 className="text-xl font-bold text-purple-600">{week.label}</h3>
+                    <div onClick={() => toggleWeek(week.id)} className={`flex justify-between items-center mb-4 p-3 rounded-lg shadow-sm cursor-pointer transition-colors ${focusedWeekId === week.id ? 'bg-indigo-100' : 'bg-purple-50 hover:bg-purple-100'}`}>
+                      <h3 className={`text-xl font-bold ${focusedWeekId === week.id ? 'text-indigo-800' : 'text-purple-600'}`}>{week.label}</h3>
                       <div className="flex items-center">
-                        <span className="mr-4 text-purple-600 transition-transform duration-300" style={{ transform: expandedWeeks.includes(week.id) ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
+                        <span className={`mr-4 text-purple-600 transition-transform duration-300 ${expandedWeeks.includes(week.id) ? 'rotate-180' : 'rotate-0'}`}>▼</span>
                         <button onClick={(e) => { e.stopPropagation(); handlePrintWeek(week.id); }} title="Imprimir o Guardar Semana como PDF" className="p-2 hover:bg-purple-200 rounded-full transition-colors">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
