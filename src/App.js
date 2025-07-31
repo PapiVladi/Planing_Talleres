@@ -462,6 +462,37 @@ const App = () => {
       }
     });
   };
+  
+  const getProgressData = (classList) => {
+    const total = classList.length;
+    const completed = classList.filter(c => c.status === 'Completada').length;
+    const inProgress = classList.filter(c => c.status === 'En Progreso').length;
+    const planned = classList.filter(c => c.status === 'Planeada').length;
+    
+    const percentage = total > 0 ? ((completed / total) * 100) : 0;
+
+    const statusData = [
+      { name: 'Completada', value: completed, color: '#4f46e5' },
+      { name: 'En Progreso', value: inProgress, color: '#f59e0b' },
+      { name: 'Planeada', value: planned, color: '#60a5fa' },
+    ];
+
+    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dailyData = weekOrder.reduce((acc, day) => {
+        acc[day] = { Planeada: 0, 'En Progreso': 0, Completada: 0 };
+        return acc;
+    }, {});
+
+    classList.forEach(c => {
+        if (dailyData[c.dayOfWeek]) {
+            dailyData[c.dayOfWeek][c.status]++;
+        }
+    });
+
+    const dailyChartData = Object.keys(dailyData).map(day => ({ day, ...dailyData[day] }));
+    
+    return { percentage, statusData, dailyChartData, total, completed };
+  };
 
   const getWeekIdentifier = (dateString) => {
     const date = new Date(`${dateString}T00:00:00`);
@@ -521,6 +552,7 @@ const App = () => {
   
   const groupedClasses = getGroupedClasses();
   
+  // THIS IS THE CORRECTED LOGIC
   useEffect(() => {
     if (groupedClasses.length > 0) {
         const today = new Date();
@@ -536,13 +568,13 @@ const App = () => {
         
         if (futureWeek) {
             setExpandedWeeks([futureWeek.id]);
-        } else if (groupedClasses.length > 0) {
+        } else {
             setExpandedWeeks([groupedClasses[groupedClasses.length - 1].id]);
         }
     } else {
         setExpandedWeeks([]);
     }
-  }, [groupedClasses]);
+  }, [selectedWorkshop, classes]); // CORRECT DEPENDENCY ARRAY
 
   const handlePrintWeek = (weekId) => {
     setPrintingWeekId(weekId);
@@ -563,7 +595,7 @@ const App = () => {
 
   const getProgressMessage = (total, completed) => {
     if (total === 0) return "Añade clases para empezar.";
-    if (completed === total) return "¡Felicidades! Semana completada.";
+    if (completed === total && total > 0) return "¡Felicidades! Semana completada.";
     if (completed > 0) return "¡Vas muy bien! Sigue así.";
     return "Aún hay trabajo por hacer. ¡Ánimo!";
   };
@@ -573,7 +605,6 @@ const App = () => {
         if (prev.includes(weekId)) {
             return prev.filter(id => id !== weekId);
         } else {
-            // This makes it so only one week can be open at a time
             return [weekId];
         }
     });
@@ -586,37 +617,6 @@ const App = () => {
     ? classes.filter(c => getWeekIdentifier(c.date).id === focusedWeekId)
     : classes;
     
-  const getChartData = (classList) => {
-    const total = classList.length;
-    const completed = classList.filter(c => c.status === 'Completada').length;
-    const inProgress = classList.filter(c => c.status === 'En Progreso').length;
-    const planned = classList.filter(c => c.status === 'Planeada').length;
-    
-    const percentage = total > 0 ? ((completed / total) * 100) : 0;
-
-    const statusData = [
-      { name: 'Completada', value: completed, color: '#4f46e5' },
-      { name: 'En Progreso', value: inProgress, color: '#f59e0b' },
-      { name: 'Planeada', value: planned, color: '#60a5fa' },
-    ];
-
-    const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const dailyData = weekOrder.reduce((acc, day) => {
-        acc[day] = { Planeada: 0, 'En Progreso': 0, Completada: 0 };
-        return acc;
-    }, {});
-
-    classList.forEach(c => {
-        if (dailyData[c.dayOfWeek]) {
-            dailyData[c.dayOfWeek][c.status]++;
-        }
-    });
-
-    const dailyChartData = Object.keys(dailyData).map(day => ({ day, ...dailyData[day] }));
-    
-    return { percentage, statusData, dailyChartData, total, completed };
-  };
-  
   const chartData = getChartData(classesForCharts);
 
   const PrintableWeek = ({ week, workshopName }) => (
@@ -1005,7 +1005,7 @@ const App = () => {
                 ) : (
                     <div className="md:col-span-2 bg-gray-50 p-6 rounded-lg shadow-inner h-64 sm:h-72 flex flex-col items-center justify-center text-center">
                          <h3 className="text-lg sm:text-xl font-semibold text-gray-700">No hay clases en esta vista</h3>
-                         <p className="text-gray-500 mt-2">Añade una clase para ver las estadísticas aquí.</p>
+                         <p className="text-gray-500 mt-2">Añade una clase o selecciona otra semana para ver las estadísticas aquí.</p>
                     </div>
                 )}
             </div>
