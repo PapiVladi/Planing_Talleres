@@ -489,7 +489,8 @@ const App = () => {
 
     return {
       id: firstDayOfWeek.toISOString().split('T')[0],
-      label: `Semana ${weekNo} (del ${firstDayFormatted} al ${lastDayFormatted})`
+      label: `Semana ${weekNo} (del ${firstDayFormatted} al ${lastDayFormatted})`,
+      shortLabel: `S${weekNo}`
     };
   };
 
@@ -501,7 +502,7 @@ const App = () => {
     const grouped = classes.reduce((acc, cls) => {
       const week = getWeekIdentifier(cls.date);
       if (!acc[week.id]) {
-        acc[week.id] = { label: week.label, days: {} };
+        acc[week.id] = { label: week.label, shortLabel: week.shortLabel, days: {} };
       }
       if (!acc[week.id].days[cls.dayOfWeek]) {
         acc[week.id].days[cls.dayOfWeek] = [];
@@ -518,10 +519,9 @@ const App = () => {
       .sort(([weekIdA], [weekIdB]) => weekIdA.localeCompare(weekIdB))
       .map(([id, data]) => ({ id, ...data }));
   }, [classes]);
-
+  
   const groupedClasses = getGroupedClasses();
   
-  // Sets the default expanded week
   useEffect(() => {
     if (groupedClasses.length > 0) {
         const today = new Date();
@@ -543,7 +543,7 @@ const App = () => {
     } else {
         setExpandedWeeks([]);
     }
-  }, [selectedWorkshop, classes]); // CORRECTED DEPENDENCY
+  }, [selectedWorkshop, classes]);
 
   const handlePrintWeek = (weekId) => {
     setPrintingWeekId(weekId);
@@ -561,7 +561,32 @@ const App = () => {
       window.removeEventListener('afterprint', afterPrint);
     };
   }, []);
+
+  const getProgressMessage = (total, completed) => {
+    if (total === 0) return "Añade clases para empezar.";
+    if (completed === total && total > 0) return "¡Felicidades! Todos los objetivos de esta vista están completados.";
+    if (completed > 0) return "¡Vas muy bien! Sigue así.";
+    return "Aún hay trabajo por hacer. ¡Ánimo!";
+  };
+
+  const toggleWeek = (weekId) => {
+    setExpandedWeeks(prev => {
+        if (prev.includes(weekId)) {
+            return prev.filter(id => id !== weekId);
+        } else {
+            return [weekId];
+        }
+    });
+  };
+
+  const currentFormData = editingClass || newClass;
   
+  const focusedWeekId = expandedWeeks.length > 0 ? expandedWeeks[0] : null;
+
+  const classesForCharts = focusedWeekId
+    ? classes.filter(c => getWeekIdentifier(c.date).id === focusedWeekId)
+    : classes;
+    
   const getChartData = (classList) => {
     const total = classList.length;
     const completed = classList.filter(c => c.status === 'Completada').length;
@@ -593,32 +618,30 @@ const App = () => {
     return { percentage, statusData, dailyChartData, total, completed };
   };
 
-  const toggleWeek = (weekId) => {
-    setExpandedWeeks(prev => {
-        if (prev.includes(weekId)) {
-            return prev.filter(id => id !== weekId);
-        } else {
-            return [weekId];
-        }
-    });
-  };
-
-  const currentFormData = editingClass || newClass;
-  
-  const focusedWeekId = expandedWeeks.length > 0 ? expandedWeeks[0] : null;
-
-  const classesForCharts = focusedWeekId
-    ? classes.filter(c => getWeekIdentifier(c.date).id === focusedWeekId)
-    : classes;
+  const getWeeklyOverviewData = (allClasses) => {
+    if (allClasses.length === 0) return [];
     
-  const chartData = getChartData(classesForCharts);
+    const weekMap = {};
 
-  const getProgressMessage = (total, completed) => {
-    if (total === 0) return "Añade clases para empezar.";
-    if (completed === total && total > 0) return "¡Felicidades! Semana completada.";
-    if (completed > 0) return "¡Vas muy bien! Sigue así.";
-    return "Aún hay trabajo por hacer. ¡Ánimo!";
+    allClasses.forEach(cls => {
+        const week = getWeekIdentifier(cls.date);
+        if (!weekMap[week.id]) {
+            weekMap[week.id] = {
+                weekLabel: week.shortLabel,
+                Planeada: 0,
+                'En Progreso': 0,
+                Completada: 0
+            };
+        }
+        weekMap[week.id][cls.status]++;
+    });
+
+    return Object.values(weekMap);
   };
+
+  const chartData = getChartData(classesForCharts);
+  const weeklyOverviewData = getWeeklyOverviewData(classes);
+
 
   const PrintableWeek = ({ week, workshopName }) => (
     <div className="font-sans">
@@ -962,14 +985,14 @@ const App = () => {
 
           <div className="space-y-4 sm:space-y-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">
-                {focusedWeekId && classesForCharts.length > 0 ? "Avance de la Semana" : "Avance General"} ({selectedWorkshop || 'Ningún Taller Seleccionado'})
+              {focusedWeekId && classesForCharts.length > 0 ? "Avance de la Semana" : "Avance General"} ({selectedWorkshop || 'Ningún Taller Seleccionado'})
             </h2>
             <div className="text-center mb-3 sm:mb-4">
               <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{`${chartData.percentage.toFixed(1)}%`}% Completado</p>
               <p className="text-base sm:text-lg text-gray-700 mt-1 sm:mt-2">{getProgressMessage(chartData.total, chartData.completed)}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                {classesForCharts.length > 0 ? (
+                {classes.length > 0 ? (
                     <>
                         <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72">
                             <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Estado de Clases</h3>
@@ -988,18 +1011,18 @@ const App = () => {
                         </div>
 
                         <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72">
-                            <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Clases por Día</h3>
+                             <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">{focusedWeekId ? 'Clases por Día (Semana)' : 'Actividad por Semana (General)'}</h3>
                             <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData.dailyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="day" fontSize={12} />
-                                <YAxis fontSize={12} allowDecimals={false} />
-                                <Tooltip />
-                                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                <Bar dataKey="Planeada" stackId="a" fill="#60a5fa" />
-                                <Bar dataKey="En Progreso" stackId="a" fill="#f59e0b" />
-                                <Bar dataKey="Completada" stackId="a" fill="#4f46e5" />
-                            </BarChart>
+                                <BarChart data={focusedWeekId ? chartData.dailyChartData : weeklyOverviewData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey={focusedWeekId ? "day" : "weekLabel"} fontSize={12} />
+                                    <YAxis fontSize={12} allowDecimals={false} />
+                                    <Tooltip />
+                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                    <Bar dataKey="Planeada" stackId="a" fill="#60a5fa" />
+                                    <Bar dataKey="En Progreso" stackId="a" fill="#f59e0b" />
+                                    <Bar dataKey="Completada" stackId="a" fill="#4f46e5" />
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </>
