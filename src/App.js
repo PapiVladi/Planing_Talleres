@@ -312,7 +312,7 @@ const App = () => {
   };
 
   const startEditing = (classToEdit) => {
-    setActiveTab('addClass'); // Switch to the form tab when editing
+    setActiveTab('addClass');
     setEditingClass({
       ...initialClassState,
       ...classToEdit,
@@ -467,15 +467,13 @@ const App = () => {
   const getProgressData = useCallback(() => {
     const totalClasses = classes.length;
     const completedClasses = classes.filter(c => c.status === 'Completada').length;
-    const inProgressClasses = classes.filter(c => c.status === 'En Progreso').length;
-    const plannedClasses = classes.filter(c => c.status === 'Planeada').length;
     
     const progressPercentage = totalClasses > 0 ? ((completedClasses / totalClasses) * 100) : 0;
 
     const overallStatusData = [
-      { name: 'Completadas', value: completedClasses, color: '#4f46e5' }, // indigo-600
-      { name: 'En Progreso', value: inProgressClasses, color: '#f59e0b' }, // amber-500
-      { name: 'Planeadas', value: plannedClasses, color: '#60a5fa' }, // blue-400
+      { name: 'Completadas', value: completedClasses, color: '#4f46e5' },
+      { name: 'En Progreso', value: classes.filter(c => c.status === 'En Progreso').length, color: '#f59e0b' },
+      { name: 'Planeadas', value: classes.filter(c => c.status === 'Planeada').length, color: '#60a5fa' },
     ];
 
     const weekOrder = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -495,7 +493,7 @@ const App = () => {
         ...dailyData[day]
     }));
 
-    return { overallStatusData, dailyProgressData, totalClasses, completedClasses, progressPercentage };
+    return { overallStatusData, dailyProgressData, progressPercentage };
   }, [classes]);
   
   const getWeekIdentifier = (dateString) => {
@@ -570,6 +568,7 @@ const App = () => {
       window.removeEventListener('afterprint', afterPrint);
     };
   }, []);
+
 
   const { overallStatusData, dailyProgressData, progressPercentage } = getProgressData();
   const groupedClasses = getGroupedClasses();
@@ -668,9 +667,7 @@ const App = () => {
 
         <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Main Content Column */}
           <section className="lg:col-span-2 space-y-8">
-            {/* Workshop Selector */}
             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-sm font-semibold text-gray-500 mb-3">SELECCIONA UN TALLER</h2>
               <div className="flex flex-wrap gap-2">
@@ -694,7 +691,6 @@ const App = () => {
               </div>
             </div>
 
-            {/* Stats / Graphs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado General</h3>
@@ -741,7 +737,6 @@ const App = () => {
               </div>
             </div>
 
-            {/* Class List */}
             <div className="space-y-8">
               {groupedClasses.map(week => (
                 <div key={week.id}>
@@ -809,7 +804,6 @@ const App = () => {
             </div>
           </section>
 
-          {/* Sidebar Column */}
           <aside className="lg:col-span-1">
             <div className="sticky top-8 bg-white rounded-lg border border-gray-200 shadow-sm">
               <div className="border-b border-gray-200">
@@ -823,33 +817,78 @@ const App = () => {
                 </nav>
               </div>
               
-              {/* Add/Edit Class Tab */}
               <div className={`p-6 ${activeTab === 'addClass' ? 'block' : 'hidden'}`}>
-                <h2 className="text-xl font-bold text-gray-800 mb-4">{editingClass ? 'Editar Clase' : `Añadir a ${selectedWorkshop || '...'}`}</h2>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">{editingClass ? 'Editar Detalles de la Clase' : `Añadir a ${selectedWorkshop || '...'}`}</h2>
                 <div className="space-y-4">
-                  <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-700">Título de la Clase</label>
-                    <input type="text" id="title" name="title" value={currentFormData.title} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
-                  </div>
-                  <div>
-                    <label htmlFor="date" className="block text-sm font-medium text-gray-700">Fecha y Hora</label>
-                    <div className="flex gap-2 mt-1">
-                      <input type="date" id="date" name="date" value={currentFormData.date} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
-                      <input type="time" id="time" name="time" value={currentFormData.time} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
+                    {/* Simplified Add Form */}
+                    <div>
+                        <label htmlFor="title" className="block text-sm font-medium text-gray-700">Título de la Clase</label>
+                        <input type="text" id="title" name="title" value={currentFormData.title} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
                     </div>
-                  </div>
-                  <div className="flex-1 bg-indigo-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition duration-200 ease-in-out shadow-sm text-center cursor-pointer" onClick={addOrUpdateClass}>
-                    {editingClass ? 'Guardar Cambios' : 'Añadir Clase'}
-                  </div>
-                  {editingClass && (
-                    <div className="flex-1 bg-gray-200 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-300 transition duration-200 ease-in-out shadow-sm text-center cursor-pointer" onClick={cancelEditing}>
-                      Cancelar Edición
+                    <div>
+                        <label htmlFor="date" className="block text-sm font-medium text-gray-700">Fecha y Hora</label>
+                        <div className="flex gap-2 mt-1">
+                            <input type="date" id="date" name="date" value={currentFormData.date} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
+                            <input type="time" id="time" name="time" value={currentFormData.time} onChange={handleInputChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
+                        </div>
                     </div>
-                  )}
+                    
+                    {/* Full Edit Form */}
+                    {editingClass && (
+                      <>
+                        <div className='border-t border-gray-200 pt-4 space-y-4'>
+                          <h3 className='text-lg font-semibold text-gray-700'>Guía Pedagógica</h3>
+                          {/* All the pedagogical fields */}
+                          <div>
+                            <label htmlFor="purpose" className="block text-sm font-medium text-gray-700">Propósito</label>
+                            <input type="text" name="purpose" value={currentFormData.purpose} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
+                          </div>
+                           <div>
+                            <label htmlFor="activity_start" className="block text-sm font-medium text-gray-700">Inicio</label>
+                            <textarea name="activity_start" value={currentFormData.activity_start} onChange={handleInputChange} rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                          </div>
+                          <div>
+                            <label htmlFor="activity_main" className="block text-sm font-medium text-gray-700">Desarrollo</label>
+                            <textarea name="activity_main" value={currentFormData.activity_main} onChange={handleInputChange} rows="3" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                          </div>
+                          <div>
+                            <label htmlFor="activity_end" className="block text-sm font-medium text-gray-700">Cierre</label>
+                            <textarea name="activity_end" value={currentFormData.activity_end} onChange={handleInputChange} rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                          </div>
+                          <div>
+                            <label htmlFor="resources" className="block text-sm font-medium text-gray-700">Recursos</label>
+                            <textarea name="resources" value={currentFormData.resources} onChange={handleInputChange} rows="2" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                          </div>
+                        </div>
+                        <div className="border-t border-gray-200 pt-4">
+                          <label className="block text-sm font-medium text-gray-700">Checklist de Tareas</label>
+                          <div className="flex gap-2 mt-1">
+                            <input type="text" value={newObjective} onChange={(e) => setNewObjective(e.target.value)} placeholder="Nueva tarea" className="flex-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"/>
+                            <button onClick={handleAddObjective} className="bg-gray-200 text-gray-700 font-semibold py-2 px-3 rounded-lg hover:bg-gray-300 text-sm">Añadir</button>
+                          </div>
+                          <ul className="space-y-2 mt-2 max-h-32 overflow-y-auto">
+                            {currentFormData.objectives.map((obj, index) => (
+                              <li key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
+                                <span className="text-sm text-gray-800">{obj.text}</span>
+                                <button onClick={() => handleRemoveObjective(index)} className="text-red-500 hover:text-red-700 font-bold text-sm">&times;</button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex-1 bg-indigo-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition duration-200 ease-in-out shadow-sm text-center cursor-pointer" onClick={addOrUpdateClass}>
+                      {editingClass ? 'Guardar Cambios' : 'Añadir Clase'}
+                    </div>
+                    {editingClass && (
+                      <div className="flex-1 bg-gray-200 text-gray-800 font-bold py-2.5 px-4 rounded-lg hover:bg-gray-300 transition duration-200 ease-in-out shadow-sm text-center cursor-pointer" onClick={cancelEditing}>
+                        Cancelar Edición
+                      </div>
+                    )}
                 </div>
               </div>
               
-              {/* Management Tab */}
               <div className={`p-6 ${activeTab === 'manage' ? 'block' : 'hidden'}`}>
                 <div className="space-y-6">
                   <div>
