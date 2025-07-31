@@ -134,6 +134,7 @@ const App = () => {
   const [showModalCancel, setShowModalCancel] = useState(false);
   const [newObjective, setNewObjective] = useState('');
   const [printingWeekId, setPrintingWeekId] = useState(null);
+  const [expandedWeeks, setExpandedWeeks] = useState([]); // State for accordion
 
   // Authentication and Firestore Initialization
   useEffect(() => {
@@ -566,16 +567,48 @@ const App = () => {
     };
   }, []);
 
-
   const { overallStatusData, dailyProgressData, progressPercentage } = getProgressData();
   const groupedClasses = getGroupedClasses();
 
   const getProgressMessage = () => {
     if (classes.length === 0) return "¡Empieza a añadir tus clases para ver el progreso!";
-    if (classes.filter(c => c.status === 'Completada').length === classes.length) return "¡Felicidades! ¡Todas tus clases están completadas!";
+    if (classes.filter(c => c.status === 'Completada').length === classes.length && classes.length > 0) return "¡Felicidades! ¡Todas tus clases están completadas!";
     if (classes.filter(c => c.status === 'Completada').length > 0) return "¡Vas muy bien! Sigue así.";
     return "Aún hay trabajo por hacer. ¡Ánimo!";
   };
+  
+  const toggleWeek = (weekId) => {
+    setExpandedWeeks(prev => {
+        if (prev.includes(weekId)) {
+            return prev.filter(id => id !== weekId);
+        } else {
+            return [...prev, weekId];
+        }
+    });
+  };
+
+  useEffect(() => {
+    if (groupedClasses.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dayOfWeek = today.getDay();
+        const firstDayOfWeek = new Date(today);
+        firstDayOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+
+        const currentWeekId = firstDayOfWeek.toISOString().split('T')[0];
+        
+        // Find the first week that is today or in the future
+        const futureWeek = groupedClasses.find(week => week.id >= currentWeekId);
+        
+        if (futureWeek) {
+            setExpandedWeeks([futureWeek.id]);
+        } else if (groupedClasses.length > 0) {
+            // If no future weeks, expand the last available week
+            setExpandedWeeks([groupedClasses[groupedClasses.length - 1].id]);
+        }
+    }
+  }, [classes, selectedWorkshop]); // Rerun when classes or workshop changes
 
   const currentFormData = editingClass || newClass;
 
@@ -922,7 +955,7 @@ const App = () => {
           <div className="space-y-4 sm:space-y-6">
             <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4 border-b pb-2 sm:pb-3">Avance General ({selectedWorkshop || 'Ningún Taller Seleccionado'})</h2>
             <div className="text-center mb-3 sm:mb-4">
-              <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{progressPercentage}% Completado</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-green-600">{`${parseFloat(progressPercentage).toFixed(1)}%`}% Completado</p>
               <p className="text-base sm:text-lg text-gray-700 mt-1 sm:mt-2">{getProgressMessage()}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -945,7 +978,7 @@ const App = () => {
               <div className="bg-gray-50 p-3 sm:p-4 rounded-lg shadow-inner h-64 sm:h-72 overflow-hidden flex-none min-w-0 relative z-0">
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">Clases por Día</h3>
                 <ResponsiveContainer width="100%" height="100%" key={selectedWorkshop + 'bar'}>
-                  <BarChart data={dailyProgressData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                  <BarChart data={dailyProgressData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="day" fontSize={12} />
                     <YAxis fontSize={12} allowDecimals={false} />
@@ -968,110 +1001,115 @@ const App = () => {
               <div className="space-y-6">
                 {groupedClasses.map(week => (
                   <div key={week.id}>
-                    <div className="flex justify-between items-center mb-4 bg-purple-50 p-3 rounded-lg shadow-sm">
+                    <div onClick={() => toggleWeek(week.id)} className="flex justify-between items-center mb-4 bg-purple-50 p-3 rounded-lg shadow-sm cursor-pointer hover:bg-purple-100 transition-colors">
                       <h3 className="text-xl font-bold text-purple-600">{week.label}</h3>
-                      <button onClick={() => handlePrintWeek(week.id)} title="Imprimir o Guardar Semana como PDF" className="p-2 hover:bg-purple-200 rounded-full transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center">
+                        <span className="mr-4 text-purple-600 transition-transform duration-300" style={{ transform: expandedWeeks.includes(week.id) ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
+                        <button onClick={(e) => { e.stopPropagation(); handlePrintWeek(week.id); }} title="Imprimir o Guardar Semana como PDF" className="p-2 hover:bg-purple-200 rounded-full transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                    <div className="space-y-4 sm:space-y-6 ml-2 sm:ml-4 pl-4 border-l-2 border-purple-200">
-                      {week.sortedDays.map(day => (
-                         <div key={day}>
-                            <h4 className="text-lg sm:text-xl font-bold text-blue-500 mb-3 border-b-2 border-blue-200 pb-1.5">{day}</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                              {week.days[day].map(cls => (
-                                <div key={cls.id} className={`bg-gray-50 p-4 sm:p-5 rounded-lg shadow-sm border ${
-                                  cls.status === 'Completada' ? 'border-green-400' :
-                                  cls.status === 'En Progreso' ? 'border-yellow-400' :
-                                  'border-blue-300'
-                                }`}>
-                                  <div className="flex justify-between items-start mb-1.5 sm:mb-2">
-                                    <h5 className="text-base sm:text-lg font-semibold text-gray-900">{cls.title}</h5>
-                                    <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                                      cls.status === 'Completada' ? 'bg-green-100 text-green-800' :
-                                      cls.status === 'En Progreso' ? 'bg-yellow-100 text-yellow-800' :
-                                      'bg-blue-100 text-blue-800'
+                    {expandedWeeks.includes(week.id) && (
+                        <div className="space-y-4 sm:space-y-6 ml-2 sm:ml-4 pl-4 border-l-2 border-purple-200">
+                        {week.sortedDays.map(day => (
+                            <div key={day}>
+                                <h4 className="text-lg sm:text-xl font-bold text-blue-500 mb-3 border-b-2 border-blue-200 pb-1.5">{day}</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                                {week.days[day].map(cls => (
+                                    <div key={cls.id} className={`bg-gray-50 p-4 sm:p-5 rounded-lg shadow-sm border ${
+                                    cls.status === 'Completada' ? 'border-green-400' :
+                                    cls.status === 'En Progreso' ? 'border-yellow-400' :
+                                    'border-blue-300'
                                     }`}>
-                                      {cls.status}
-                                    </span>
-                                  </div>
-                                  
-                                  <div className='text-xs sm:text-sm text-gray-500 mb-3'>
-                                      <span className='font-bold'>{cls.date}</span> {cls.time ? `(${cls.time})` : ''}
-                                  </div>
-                                  
-                                  {cls.purpose || cls.activity_start || cls.activity_main || cls.activity_end || cls.resources ? (
-                                    <div className="space-y-2 text-sm mb-3">
-                                      {cls.purpose && <div><strong className='text-gray-700'>Propósito:</strong> <span className='text-gray-600'>{cls.purpose}</span></div>}
-                                      {cls.activity_start && <div><strong className='text-gray-700'>Inicio:</strong> <span className='text-gray-600'>{cls.activity_start}</span></div>}
-                                      {cls.activity_main && <div><strong className='text-gray-700'>Desarrollo:</strong> <span className='text-gray-600'>{cls.activity_main}</span></div>}
-                                      {cls.activity_end && <div><strong className='text-gray-700'>Cierre:</strong> <span className='text-gray-600'>{cls.activity_end}</span></div>}
-                                      {cls.resources && <div><strong className='text-gray-700'>Recursos:</strong> <span className='text-gray-600'>{cls.resources}</span></div>}
+                                    <div className="flex justify-between items-start mb-1.5 sm:mb-2">
+                                        <h5 className="text-base sm:text-lg font-semibold text-gray-900">{cls.title}</h5>
+                                        <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                                        cls.status === 'Completada' ? 'bg-green-100 text-green-800' :
+                                        cls.status === 'En Progreso' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-blue-100 text-blue-800'
+                                        }`}>
+                                        {cls.status}
+                                        </span>
                                     </div>
-                                  ) : (
-                                      cls.description && <p className="text-sm text-gray-600 mb-2">{cls.description}</p>
-                                  )}
-
-                                  {cls.createdBy && (
-                                    <p className="text-xs text-gray-400 mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
-                                  )}
-                                  
-                                  {cls.objectives && cls.objectives.length > 0 && (
-                                    <div className="border-t pt-3">
-                                      <h5 className="text-sm font-semibold text-gray-700 mb-2">Checklist de Tareas:</h5>
-                                      <ul className="space-y-1.5">
-                                        {cls.objectives.map((obj, index) => (
-                                          <li key={index} className="flex items-center">
-                                            <input
-                                              type="checkbox"
-                                              id={`obj-${cls.id}-${index}`}
-                                              checked={obj.completed}
-                                              onChange={() => handleToggleObjective(cls.id, index)}
-                                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                            />
-                                            <label
-                                              htmlFor={`obj-${cls.id}-${index}`}
-                                              className={`ml-2 text-sm text-gray-600 cursor-pointer ${obj.completed ? 'line-through text-gray-400' : ''}`}
-                                            >
-                                              {obj.text}
-                                            </label>
-                                          </li>
-                                        ))}
-                                      </ul>
+                                    
+                                    <div className='text-xs sm:text-sm text-gray-500 mb-3'>
+                                        <span className='font-bold'>{cls.date}</span> {cls.time ? `(${cls.time})` : ''}
                                     </div>
-                                  )}
+                                    
+                                    {cls.purpose || cls.activity_start || cls.activity_main || cls.activity_end || cls.resources ? (
+                                        <div className="space-y-2 text-sm mb-3">
+                                        {cls.purpose && <div><strong className='text-gray-700'>Propósito:</strong> <span className='text-gray-600'>{cls.purpose}</span></div>}
+                                        {cls.activity_start && <div><strong className='text-gray-700'>Inicio:</strong> <span className='text-gray-600'>{cls.activity_start}</span></div>}
+                                        {cls.activity_main && <div><strong className='text-gray-700'>Desarrollo:</strong> <span className='text-gray-600'>{cls.activity_main}</span></div>}
+                                        {cls.activity_end && <div><strong className='text-gray-700'>Cierre:</strong> <span className='text-gray-600'>{cls.activity_end}</span></div>}
+                                        {cls.resources && <div><strong className='text-gray-700'>Recursos:</strong> <span className='text-gray-600'>{cls.resources}</span></div>}
+                                        </div>
+                                    ) : (
+                                        cls.description && <p className="text-sm text-gray-600 mb-2">{cls.description}</p>
+                                    )}
 
-                                  <div className="flex flex-wrap gap-2 mt-4 border-t pt-3 no-print">
-                                    <button
-                                      onClick={() => startEditing(cls)}
-                                      className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
-                                    >
-                                      Editar
-                                    </button>
-                                    <button
-                                      onClick={() => deleteClass(cls.id)}
-                                      className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
-                                    >
-                                      Eliminar
-                                    </button>
-                                    <select
-                                      value={cls.status}
-                                      onChange={(e) => updateClassStatus(cls.id, e.target.value)}
-                                      className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                                    >
-                                      <option value="Planeada">Planeada</option>
-                                      <option value="En Progreso">En Progreso</option>
-                                      <option value="Completada">Completada</option>
-                                    </select>
-                                  </div>
+                                    {cls.createdBy && (
+                                        <p className="text-xs text-gray-400 mb-3">Creada por: <span className="font-mono">{cls.createdBy.substring(0, 8)}...</span></p>
+                                    )}
+                                    
+                                    {cls.objectives && cls.objectives.length > 0 && (
+                                        <div className="border-t pt-3">
+                                        <h5 className="text-sm font-semibold text-gray-700 mb-2">Checklist de Tareas:</h5>
+                                        <ul className="space-y-1.5">
+                                            {cls.objectives.map((obj, index) => (
+                                            <li key={index} className="flex items-center">
+                                                <input
+                                                type="checkbox"
+                                                id={`obj-${cls.id}-${index}`}
+                                                checked={obj.completed}
+                                                onChange={() => handleToggleObjective(cls.id, index)}
+                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                />
+                                                <label
+                                                htmlFor={`obj-${cls.id}-${index}`}
+                                                className={`ml-2 text-sm text-gray-600 cursor-pointer ${obj.completed ? 'line-through text-gray-400' : ''}`}
+                                                >
+                                                {obj.text}
+                                                </label>
+                                            </li>
+                                            ))}
+                                        </ul>
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-wrap gap-2 mt-4 border-t pt-3 no-print">
+                                        <button
+                                        onClick={() => startEditing(cls)}
+                                        className="px-3 py-1.5 text-xs sm:text-sm bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
+                                        >
+                                        Editar
+                                        </button>
+                                        <button
+                                        onClick={() => deleteClass(cls.id)}
+                                        className="px-3 py-1.5 text-xs sm:text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                                        >
+                                        Eliminar
+                                        </button>
+                                        <select
+                                        value={cls.status}
+                                        onChange={(e) => updateClassStatus(cls.id, e.target.value)}
+                                        className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                                        >
+                                        <option value="Planeada">Planeada</option>
+                                        <option value="En Progreso">En Progreso</option>
+                                        <option value="Completada">Completada</option>
+                                        </select>
+                                    </div>
+                                    </div>
+                                ))}
                                 </div>
-                              ))}
                             </div>
-                         </div>
-                      ))}
-                    </div>
+                        ))}
+                        </div>
+                    )}
                   </div>
                 ))}
               </div>
